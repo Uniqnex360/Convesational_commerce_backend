@@ -11,4 +11,4 @@ jobs:
     steps:
       - name: Ping Render app
         run: |
-          curl -X GET https://sdk-backend-teaa.onrender.com
+          curl -X GET https://convesational-commerce-backend.onrender.com

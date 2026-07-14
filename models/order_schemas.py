@@ -1,48 +1,12 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List,Literal
+from typing import Optional, List, Literal
 from enum import Enum
 from datetime import datetime
-from backend.models.order_schemas import OrderStatus
-
-class OrderListItem(BaseModel):
-    order_id: str
-    order_number: str
-    status: OrderStatus
-    placed_at: Optional[datetime] = None
-    total: Optional[float] = None
-    currency: Optional[str] = None
 
 
-class CancelOrderRequest(BaseModel):
-    order_id: str
-    reason: Optional[str] = Field(default=None, max_length=500)
-    confirmation: Literal["yes", "confirm"]  # must explicitly type "yes" or "confirm"
-
-
-class ReturnRequestCreate(BaseModel):
-    order_id: str
-    item_skus: List[str] = Field(..., min_items=1)
-    reason: str = Field(..., min_length=3, max_length=500)
-    confirmation: Literal["yes", "confirm"]
-
-
-class MutateOrderResponse(BaseModel):
-    success: bool
-    action: str  # "cancelled" | "return_initiated"
-    order_id: str
-    order_number: str
-    new_status: OrderStatus
-    message: str
-    refund_eta: Optional[str] = None  # human-readable: "3-5 business days"
-    reference: Optional[str] = None   # return tracking number, refund id, etc.
-
-
-class OrderActionError(BaseModel):
-    """Structured error response for action failures"""
-    success: bool = False
-    error_code: str  # NOT_ELIGIBLE, NOT_VERIFIED, ALREADY_CANCELLED, PLATFORM_ERROR
-    message: str  # safe, generic — no internal details
-
+# ============================================================
+# ENUMS - MUST be defined FIRST
+# ============================================================
 class OrderStatus(str, Enum):
     placed = "placed"
     processing = "processing"
@@ -55,6 +19,9 @@ class OrderStatus(str, Enum):
     partially_refunded = "partially_refunded"
 
 
+# ============================================================
+# SUB-MODELS
+# ============================================================
 class OrderLineItem(BaseModel):
     sku: Optional[str] = None
     name: str
@@ -75,6 +42,9 @@ class MaskedCustomer(BaseModel):
     masked_phone: Optional[str] = None
 
 
+# ============================================================
+# MAIN MODELS - Now safe to use OrderStatus
+# ============================================================
 class OrderContext(BaseModel):
     order_id: str
     order_number: str
@@ -90,6 +60,18 @@ class OrderContext(BaseModel):
     returnable: bool = False
 
 
+class OrderListItem(BaseModel):
+    order_id: str
+    order_number: str
+    status: OrderStatus
+    placed_at: Optional[datetime] = None
+    total: Optional[float] = None
+    currency: Optional[str] = None
+
+
+# ============================================================
+# REQUEST/RESPONSE MODELS
+# ============================================================
 class OrderVerifyRequest(BaseModel):
     order_number: str
     email: Optional[EmailStr] = None
@@ -111,3 +93,27 @@ class AuthCheckRequest(BaseModel):
 class AuthCheckResponse(BaseModel):
     authenticated: bool
     customer_id: Optional[str] = None
+
+
+class CancelOrderRequest(BaseModel):
+    order_id: str
+    reason: Optional[str] = Field(default=None, max_length=500)
+    confirmation: Literal["yes", "confirm"]
+
+
+class ReturnRequestCreate(BaseModel):
+    order_id: str
+    item_skus: List[str] = Field(..., min_items=1)
+    reason: str = Field(..., min_length=3, max_length=500)
+    confirmation: Literal["yes", "confirm"]
+
+
+class MutateOrderResponse(BaseModel):
+    success: bool
+    action: str
+    order_id: str
+    order_number: str
+    new_status: OrderStatus
+    message: str
+    refund_eta: Optional[str] = None
+    reference: Optional[str] = None
