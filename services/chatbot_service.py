@@ -721,7 +721,10 @@ class ChatbotService:
 
         # 2. Intent Detection
         intent = self._classify_intent(user_query, product_context)
-        
+        if intent == "acknowledge":
+            response_text = "You're very welcome! I'm here if you need anything else with your orders or products."
+            self._add_to_history(sess, user_query, response_text)
+            return response_text
         # 3. Routing
         if intent in ("order_status", "order_cancel", "order_return") and x_api_key:
             return await self._handle_order_intent(
@@ -736,6 +739,9 @@ class ChatbotService:
     # ============================================================
     def _classify_intent(self, user_query: str, product_context: dict) -> str:
         msg = user_query.lower().strip()
+        ack_keywords = ["ok", "okay", "thanks", "thank you", "got it", "cool", "great", "perfect"]
+        if msg in ack_keywords:
+            return "acknowledge"
         
         # Cancellation (including common typos)
         cancel_keywords = ["cancel", "canel", "stop my order", "dont want", "changed my mind"]
@@ -770,7 +776,7 @@ class ChatbotService:
             order_data = await self._fetch_order_data(intent, user_query, sess, product_context, x_api_key)
             
             if not order_data:
-                response_text = "I couldn't find any orders. Please check your order number or try again."
+                response_text = "Welcome! I'd be happy to help you with your order. To get started, could you please provide your order number?"
                 self._add_to_history(sess, user_query, response_text)
                 return response_text
             
@@ -899,7 +905,15 @@ class ChatbotService:
         if len(sess["conversation_history"]) > 5: sess["conversation_history"].pop(0)
 
     def _is_asking_confirmation(self, response: str) -> bool:
-        return any(p in response.lower() for p in ["shall i", "confirm", "yes/no", "would you like to"])
+        confirm_phrases = [
+            "shall i proceed",
+            "yes/no",
+            "confirm",
+            "shall i cancel",
+            "shall i process",
+            "is there anything specific you need help with" # ADD THIS
+        ]
+        return any(phrase in response.lower() for phrase in confirm_phrases)
 
     def _is_confirmation(self, message: str) -> bool:
         return message.lower().strip() in ['yes', 'y', 'yeah', 'yep', 'confirm', 'proceed', 'do it']
