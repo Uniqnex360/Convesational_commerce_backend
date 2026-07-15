@@ -290,36 +290,105 @@ class ChatbotService:
         product_context: dict,
         x_api_key: str,
     ) -> str:
-        """
-        Handle order intents:
-        1. Fetch order data from API (no AI)
-        2. Pass data to LLM to format response
-        3. LLM orchestrates the conversation
-        """
         try:
-            # Get session state
             sess = self._get_order_session(session_id)
             
-            # Step 1: Fetch order data (NO AI)
+            # Check for confirmation of pending action
+            if sess.get("pending_action") and self._is_confirmation(user_query):
+                response_text = await self._execute_pending_action(sess, user_query)
+                self._add_to_history(sess, user_query, response_text)
+                return response_text
+            
+            # Check for decline
+            if sess.get("pending_action") and self._is_decline(user_query):
+                sess["pending_action"] = None
+                response_text = "No problem, I won't proceed with that. Anything else?"
+                self._add_to_history(sess, user_query, response_text)
+                return response_text
+            
+            # Fetch order data
             order_data = await self._fetch_order_data(
                 intent, user_query, sess, product_context, x_api_key
             )
             
             if not order_data:
-                return "I couldn't find any orders. Please check the order number or try again."
+                response_text = "I couldn't find any orders. Please check the order number or try again."
+                self._add_to_history(sess, user_query, response_text)
+                return response_text
             
-            # Step 2: Use LLM to format the response
-            llm_response = await self._llm_orchestrate_order(
+            # Use LLM with full context
+            response_text = await self._llm_orchestrate_order(
                 intent, user_query, order_data, sess
             )
             
-            return llm_response
+            # Track conversation
+            self._add_to_history(sess, user_query, response_text)
+            
+            # Set pending action if LLM is asking for confirmation
+            if self._is_asking_confirmation(response_text):
+                if order_data["type"] == "single_order":
+                    order = order_data["order"]
+                    if intent == "order_cancel" and order.get("cancellable"):
+                        sess["pending_action"] = {
+                            "action": "cancel",
+                            "order_id": order["id"]
+                        }
+                    elif intent == "order_return" and order.get("returnable"):
+                        sess["pending_action"] = {
+                            "action": "return",
+                            "order_id": order["id"],
+                            "items": [item["sku"] for item in order.get("line_items", []) if item.get("sku")]
+                        }
+            
+            return response_text
             
         except Exception as e:
             print(f"Order intent error: {e}")
             import traceback
             traceback.print_exc()
-            return "I'm having trouble looking up your order. Please try again."
+            return "I'm having trouble. Please try again."
+
+
+def _add_to_history(self, sess: dict, user_msg: str, assistant_msg: str):
+    """Add exchange to conversation history"""
+    if "conversation_history" not in sess:
+        sess["conversation_history"] = []
+    
+    sess["conversation_history"].append({
+        "user": user_msg,
+        "assistant": assistant_msg
+    })
+    
+    # Keep only last 5 exchanges
+    if len(sess["conversation_history"]) > 5:
+        sess["conversation_history"] = sess["conversation_history"][-5:]
+
+
+def _is_asking_confirmation(self, response: str) -> bool:
+    """Check if LLM is asking for confirmation"""
+    response_lower = response.lower()
+    confirm_phrases = [
+        "shall i proceed",
+        "yes/no",
+        "confirm",
+        "shall i cancel",
+        "shall i process"
+    ]
+    return any(phrase in response_lower for phrase in confirm_phrases)
+
+
+def _is_confirmation(self, message: str) -> bool:
+    """Check if message is a confirmation"""
+    msg = message.lower().strip()
+    confirmations = ['yes', 'y', 'yeah', 'yep', 'confirm', 'ok', 'okay', 'sure', 'proceed', 'do it', 'go ahead']
+    return msg in confirmations
+
+
+def _is_decline(self, message: str) -> bool:
+    """Check if message is a decline"""
+    msg = message.lower().strip()
+    declines = ['no', 'n', 'nope', 'cancel', 'nevermind', 'never mind', "don't", 'stop', 'abort']
+    return msg in declines
     
     async def _fetch_order_data(
         self,
@@ -389,53 +458,106 @@ class ChatbotService:
         sess: dict
     ) -> str:
         """
-        Use LLM to format order data into a friendly response
-        The LLM understands the data and responds naturally
+        Use LLM with full session context so it knows what "it" refers to
         """
         import json
         
-        # Prepare context for LLM
+        # Build session context
+        session_context = ""
+        
+        # Add last discussed order(s)
+        if sess.get("last_discussed_order"):
+            last_order = sess["last_discussed_order"]
+            session_context = f"""
+    CONVERSATION CONTEXT:
+    The user previously asked about their orders and you showed them a list.
+    When they say "it", "this order", "the order", "cancel it", "return it", they are referring to the LAST order they mentioned or were viewing.
+
+    LAST DISCUSSED ORDER:
+    {json.dumps(last_order, indent=2)}
+    """
+        
+        # Add pending actions
+        if sess.get("pending_action"):
+            action = sess["pending_action"]
+            session_context += f"""
+    PENDING ACTION: User has a pending '{action.get('action')}' action on Order #{action.get('order_id')}.
+    If they say "yes" or "confirm", execute the action.
+    If they say "no" or "cancel", clear the pending action.
+    """
+        
+        # Add recent conversation history
+        if sess.get("conversation_history"):
+            history = sess["conversation_history"][-3:]  # Last 3 exchanges
+            session_context += "\nRECENT CONVERSATION:\n"
+            for exchange in history:
+                session_context += f"User: {exchange['user']}\nAssistant: {exchange['assistant'][:100]}...\n\n"
+        
+        # Prepare data based on what's being asked
         if order_data["type"] == "single_order":
             order = order_data["order"]
+            # Update last discussed
+            sess["last_discussed_order"] = order
+            
             data_context = f"""
-You have access to the following order data:
-{json.dumps(order, indent=2)}
+    CURRENT ORDER DATA:
+    {json.dumps(order, indent=2)}
 
-User's request: {user_query}
-Intent: {intent}
-"""
-        else:  # order_list
+    {session_context}
+
+    USER'S NEW REQUEST: {user_query}
+    INTENT: {intent}
+    """
+        else:
+            # Order list
             orders = order_data["orders"]
             data_context = f"""
-You have access to {len(orders)} orders for this customer:
-{json.dumps(orders, indent=2)}
+    AVAILABLE ORDERS ({len(orders)} total):
+    {json.dumps(orders, indent=2)}
 
-User's request: {user_query}
-Intent: {intent}
-"""
+    {session_context}
+
+    USER'S NEW REQUEST: {user_query}
+    INTENT: {intent}
+    """
         
-        # Build prompt for LLM
-        prompt = f"""You are a helpful customer service assistant for an e-commerce store.
+        # Enhanced prompt with strong context emphasis
+        prompt = f"""You are a helpful customer service assistant for an e-commerce store with access to order data.
 
-{data_context}
+    {data_context}
 
-Instructions:
-1. Answer the user's question using ONLY the order data provided
-2. Be friendly, concise, and natural
-3. If the user wants to cancel an order, check if it's cancellable first and ask for confirmation
-4. If the user wants to return an order, check if it's returnable and ask which items
-5. Include relevant details like tracking links, product links, and order status
-6. Format the response clearly with line breaks
-7. Don't make up information not in the data
-8. If asking for confirmation, make it clear what action will be taken
-"""
+    CRITICAL INSTRUCTIONS - READ CAREFULLY:
+
+    1. **CONTEXT AWARENESS**: If the user says "it", "this order", "the order", "cancel it", "return it" - they are referring to the LAST DISCUSSED ORDER (shown above). Use that order.
+
+    2. **AMBIGUITY RESOLUTION**: 
+    - If user says "cancel it" and there's a last discussed order → cancel THAT order
+    - If user says "cancel it" and there's NO last discussed order → ask "Which order would you like to cancel?"
+    - If multiple orders and user says "the first one" or "the delivered one" → use the specific one they reference
+
+    3. **CANCELLATIONS**:
+    - Check if the order is cancellable (look for "cancellable": true)
+    - If YES: Ask "Shall I cancel Order #XXX for $XXX? (yes/no)"
+    - If NO: Explain why (e.g., "already delivered", "already shipped") and offer return instead
+
+    4. **RETURNS**:
+    - Check if returnable (look for "returnable": true)
+    - If YES: List the items and ask "Which items would you like to return?"
+
+    5. **STATUS QUERIES**: Provide order number, status, tracking info, items
+
+    6. **FORMATTING**: Use clear line breaks, include tracking links and product links
+
+    7. **BE CONCISE**: Don't dump all data, answer the specific question
+
+    8. **NO HALLUCINATIONS**: Only use data provided, don't make up information
+    """
         
         try:
-            # Call LLM
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "You are a helpful customer service assistant."},
+                    {"role": "system", "content": "You are a helpful customer service assistant. You MUST use conversation context to understand ambiguous references like 'it' or 'this order'."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
@@ -454,9 +576,10 @@ Instructions:
         if session_id not in self._order_sessions:
             self._order_sessions[session_id] = {
                 "customer_id": None,
-                "current_order": None,
-                "current_order_id": None,
-                "all_orders": []
+                "last_discussed_order": None,
+                "all_orders": [],
+                "pending_action": None,
+                "conversation_history": []
             }
         return self._order_sessions[session_id]
     
