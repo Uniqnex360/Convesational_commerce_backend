@@ -230,11 +230,52 @@ async def handle_order_return(
 # ============================================================
 
 def _build_adapter(config: dict) -> ShopifyOrderAdapter:
-    if config.get("platform") != "shopify":
-        raise HTTPException(status_code=501, detail="Platform not yet supported")
+    """
+    Build Shopify adapter. Falls back to env vars if config doesn't have credentials.
+    """
+    import os
+    
+    # Get platform - default to "shopify" since this is your main platform
+    platform = config.get("platform") or "shopify"
+    
+    # Get shop domain - try config first, then env var
+    shop_domain = (
+        config.get("shop_domain") or 
+        config.get("shopify_shop") or 
+        os.getenv("SHOPIFY_STORE") or 
+        os.getenv("SHOPIFY_SHOP_DOMAIN")
+    )
+    
+    # Get access token - try config first, then env var
+    access_token = (
+        config.get("shopify_access_token") or 
+        config.get("access_token") or 
+        os.getenv("SHOPIFY_ACCESS_TOKEN")
+    )
+    
+    # Validate
+    if not shop_domain:
+        raise HTTPException(
+            status_code=500, 
+            detail="Shop domain not configured. Set SHOPIFY_STORE env var or include shop_domain in config."
+        )
+    
+    if not access_token:
+        raise HTTPException(
+            status_code=500,
+            detail="Shopify access token not configured. Set SHOPIFY_ACCESS_TOKEN env var or include shopify_access_token in config."
+        )
+    
+    # Only support Shopify for now
+    if platform != "shopify":
+        raise HTTPException(
+            status_code=501, 
+            detail=f"Platform '{platform}' not yet supported. Only 'shopify' is implemented."
+        )
+    
     return ShopifyOrderAdapter(
-        shop_domain=config["shop_domain"],
-        access_token=config["shopify_access_token"],
+        shop_domain=shop_domain,
+        access_token=access_token,
     )
 
 
