@@ -279,7 +279,7 @@ MOCK_ORDERS = {
 # ENDPOINTS
 # ============================================================
 
-@router.get("/api/v1/mock/orders/list")
+@router.get("/mock/orders/list")
 async def mock_list_orders(
     customer_id: Optional[str] = None,
     email: Optional[str] = None,
@@ -305,7 +305,7 @@ async def mock_list_orders(
     }
 
 
-@router.get("/api/v1/mock/orders/status")
+@router.get("/mock/orders/status")
 async def mock_get_order(
     order_id: str,
     x_api_key: str = Header(..., alias="X-API-Key")
@@ -320,7 +320,7 @@ async def mock_get_order(
     return order
 
 
-@router.post("/api/v1/mock/orders/verify")
+@router.post("/mock/orders/verify")
 async def mock_verify_order(
     order_number: str,
     email: Optional[str] = None,
@@ -355,7 +355,7 @@ async def mock_verify_order(
     return {"verified": False, "message": "Order details don't match"}
 
 
-@router.post("/api/v1/mock/orders/cancel")
+@router.post("/mock/orders/cancel")
 async def mock_cancel_order(
     order_id: str,
     reason: str = "customer",
@@ -390,7 +390,7 @@ async def mock_cancel_order(
     }
 
 
-@router.post("/api/v1/mock/orders/return")
+@router.post("/mock/orders/return")
 async def mock_create_return(
     order_id: str,
     item_skus: List[str],
@@ -437,7 +437,7 @@ async def mock_create_return(
     }
 
 
-@router.get("/api/v1/mock/products/search")
+@router.get("/mock/products/search")
 async def mock_product_search(
     q: str = "",
     sku: Optional[str] = None,
@@ -465,7 +465,7 @@ async def mock_product_search(
     return {"products": results, "total": len(results)}
 
 
-@router.post("/api/v1/mock/orders/reorder")
+@router.post("/mock/orders/reorder")
 async def mock_reorder(
     order_id: str,
     item_skus: List[str],
