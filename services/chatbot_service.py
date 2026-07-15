@@ -349,47 +349,47 @@ class ChatbotService:
             return "I'm having trouble. Please try again."
 
 
-def _add_to_history(self, sess: dict, user_msg: str, assistant_msg: str):
-    """Add exchange to conversation history"""
-    if "conversation_history" not in sess:
-        sess["conversation_history"] = []
-    
-    sess["conversation_history"].append({
-        "user": user_msg,
-        "assistant": assistant_msg
-    })
-    
-    # Keep only last 5 exchanges
-    if len(sess["conversation_history"]) > 5:
-        sess["conversation_history"] = sess["conversation_history"][-5:]
+    def _add_to_history(self, sess: dict, user_msg: str, assistant_msg: str):
+        """Add exchange to conversation history"""
+        if "conversation_history" not in sess:
+            sess["conversation_history"] = []
+        
+        sess["conversation_history"].append({
+            "user": user_msg,
+            "assistant": assistant_msg
+        })
+        
+        # Keep only last 5 exchanges
+        if len(sess["conversation_history"]) > 5:
+            sess["conversation_history"] = sess["conversation_history"][-5:]
 
 
-def _is_asking_confirmation(self, response: str) -> bool:
-    """Check if LLM is asking for confirmation"""
-    response_lower = response.lower()
-    confirm_phrases = [
-        "shall i proceed",
-        "yes/no",
-        "confirm",
-        "shall i cancel",
-        "shall i process"
-    ]
-    return any(phrase in response_lower for phrase in confirm_phrases)
+    def _is_asking_confirmation(self, response: str) -> bool:
+        """Check if LLM is asking for confirmation"""
+        response_lower = response.lower()
+        confirm_phrases = [
+            "shall i proceed",
+            "yes/no",
+            "confirm",
+            "shall i cancel",
+            "shall i process"
+        ]
+        return any(phrase in response_lower for phrase in confirm_phrases)
 
 
-def _is_confirmation(self, message: str) -> bool:
-    """Check if message is a confirmation"""
-    msg = message.lower().strip()
-    confirmations = ['yes', 'y', 'yeah', 'yep', 'confirm', 'ok', 'okay', 'sure', 'proceed', 'do it', 'go ahead']
-    return msg in confirmations
+    def _is_confirmation(self, message: str) -> bool:
+        """Check if message is a confirmation"""
+        msg = message.lower().strip()
+        confirmations = ['yes', 'y', 'yeah', 'yep', 'confirm', 'ok', 'okay', 'sure', 'proceed', 'do it', 'go ahead']
+        return msg in confirmations
 
 
-def _is_decline(self, message: str) -> bool:
-    """Check if message is a decline"""
-    msg = message.lower().strip()
-    declines = ['no', 'n', 'nope', 'cancel', 'nevermind', 'never mind', "don't", 'stop', 'abort']
-    return msg in declines
-    
+    def _is_decline(self, message: str) -> bool:
+        """Check if message is a decline"""
+        msg = message.lower().strip()
+        declines = ['no', 'n', 'nope', 'cancel', 'nevermind', 'never mind', "don't", 'stop', 'abort']
+        return msg in declines
+        
     async def _fetch_order_data(
         self,
         intent: str,
@@ -449,7 +449,7 @@ def _is_decline(self, message: str) -> bool:
                     return {"type": "order_list", "orders": orders, "customer_id": customer_id}
         
         return None
-    
+
     async def _llm_orchestrate_order(
         self,
         intent: str,
@@ -567,7 +567,7 @@ def _is_decline(self, message: str) -> bool:
         except OpenAIError as e:
             print(f"OpenAI failed: {e}, falling back to Gemini")
             return ask_gemini(prompt)
-    
+
     def _get_order_session(self, session_id: str) -> dict:
         """Get or create order session state"""
         if not hasattr(self, '_order_sessions'):
@@ -582,7 +582,7 @@ def _is_decline(self, message: str) -> bool:
                 "conversation_history": []
             }
         return self._order_sessions[session_id]
-    
+
     async def _handle_product_question(
         self,
         user_query: str,
@@ -599,22 +599,22 @@ def _is_decline(self, message: str) -> bool:
             in_stock = product_context.get('inStock', True)
             
             product_info = f"""
-Product Name: {product_name}
-SKU: {product_sku}
-Brand: {product_brand}
-Category: {product_category}
-Price: ${product_price}
-Description: {product_description}
-Availability: {'In Stock' if in_stock else 'Out of Stock'}
+    Product Name: {product_name}
+    SKU: {product_sku}
+    Brand: {product_brand}
+    Category: {product_category}
+    Price: ${product_price}
+    Description: {product_description}
+    Availability: {'In Stock' if in_stock else 'Out of Stock'}
             """.strip()
             
             prompt = f"""
-You are a helpful product assistant. Answer questions about this product only.
-Keep responses concise and based only on the product details provided.
----
-{product_info}
----
-{user_query}
+    You are a helpful product assistant. Answer questions about this product only.
+    Keep responses concise and based only on the product details provided.
+    ---
+    {product_info}
+    ---
+    {user_query}
             """
             
             try:
