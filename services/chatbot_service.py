@@ -130,7 +130,8 @@ client = OpenAI(api_key=OPEN_AI_KEY)
 
 def ask_gemini(prompt):
     import requests
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GOOGLE_GEMINI_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={GOOGLE_GEMINI_KEY}"
+
 
     headers = {'Content-Type': 'application/json'}
     payload = {
