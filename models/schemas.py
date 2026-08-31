@@ -1,19 +1,17 @@
-from pydantic import BaseModel 
+from pydantic import BaseModel
 from mongoengine import fields, Document
 from datetime import datetime
 from typing import Optional, List
 from mongoengine import connect
-from typing import Dict, Any, Optional  
+from typing import Dict, Any, Optional
 from mongoengine import ReferenceField
 import os
 import asyncio
 import pandas as pd
 from dotenv import load_dotenv
-
 load_dotenv()
 MONGODB_HOST = os.getenv("MONGODB_HOST")
 MONGODB_NAME = os.getenv("MONGODB_NAME")
-
 try:
     connect(
         db=MONGODB_NAME,
@@ -32,13 +30,13 @@ class ProductResponse(BaseModel):
     body_html:str
 class ChatRequest(BaseModel):
     message: str
-    product_context: Dict[str, Any]  
-    product_id: Optional[str] = None 
+    product_context: Dict[str, Any]
+    product_id: Optional[str] = None
     session_id: Optional[str] = None
 class ChatResponse(BaseModel):
     response: str
     session_id: str
-    product_id: Optional[str] = None  
+    product_id: Optional[str] = None
 class QuestionResponse(BaseModel):
     id:str
     question:str
@@ -66,6 +64,36 @@ class brand(Document):
     logo = fields.StringField()
     manufacture_unit_id_str = fields.StringField()
     industry_id_str = fields.StringField()
+class fit_rule(Document):
+    category = fields.StringField(required=True)
+    requirement_attribute = fields.StringField(
+        required=True
+    )
+    product_attribute = fields.StringField(
+        required=True
+    )
+    relation = fields.StringField(
+        required=True,
+        choices=(
+            "range_from_input",
+            "equals",
+            "contains",
+        ),
+    )
+    min_offset = fields.FloatField()
+    max_offset = fields.FloatField()
+    required = fields.BooleanField(default=True)
+    explanation_template = fields.StringField()
+    meta = {
+        "indexes": [
+            {
+                "fields": [
+                    "category",
+                    "requirement_attribute",
+                ]
+            }
+        ]
+    }
 class vendor(Document):
     name = fields.StringField(required=True)
     manufacture_unit_id_str = fields.StringField()
@@ -120,7 +148,7 @@ class product(Document):
     ai_generated_features = fields.ListField(fields.DictField())
 from mongoengine import Document, IntField, StringField, ListField, DictField, DateTimeField, FloatField
 class ShopifyProduct(Document):
-    _id = IntField(primary_key=True)  
+    _id = IntField(primary_key=True)
     title = StringField(required=True)
     vendor = StringField()
     product_type = StringField()
@@ -129,15 +157,13 @@ class ShopifyProduct(Document):
     status = StringField(default="active")
     body_html = StringField()
     image_url = StringField()
-    variants = ListField(DictField())  
+    variants = ListField(DictField())
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(default=datetime.utcnow)
-    shopify_updated_at = DateTimeField()  
+    shopify_updated_at = DateTimeField()
     last_synced = DateTimeField(default=datetime.utcnow)
     category_id = ReferenceField('product_category', null=True)
-    
     # ===== NEW FIELDS FOR EXCEL DATA =====
-    
     # Category Hierarchy (from Excel columns)
     category_1 = StringField()
     category_2 = StringField()
@@ -145,11 +171,9 @@ class ShopifyProduct(Document):
     category_4 = StringField()
     category_5 = StringField()
     end_level = StringField()
-    
     # Basic Product Info
     sku = StringField()  # Main SKU field for easy access
     brand = StringField()  # Duplicate of vendor for clarity
-    
     # TV Specific Attributes
     tv_type = StringField()
     display_type = StringField()
@@ -158,19 +182,15 @@ class ShopifyProduct(Document):
     resolution = StringField()
     refresh_rate = StringField()
     smart_features = StringField()
-    
     # Washing Machine Specific Attributes
     load_type = StringField()
     capacity = StringField()
     laundry_features = StringField()
     energy_rating = StringField()
-    
     # Connectivity (for both TVs and other smart appliances)
     connectivity = StringField()
-    
     # Additional metadata
     attributes = DictField(default={})  # Store any extra attributes as key-value pairs
-    
     meta = {
         "collection": "shopify_products",
         "indexes": [
@@ -181,7 +201,6 @@ class ShopifyProduct(Document):
             "category_id"
         ]
     }
-    
     def to_dict(self):
         return {
             "_id": self._id,
@@ -199,7 +218,6 @@ class ShopifyProduct(Document):
             "shopify_updated_at": self.shopify_updated_at,
             "last_synced": self.last_synced,
             "category_id": str(self.category_id.id) if self.category_id else None,
-            
             # New fields in to_dict
             "category_1": self.category_1,
             "category_2": self.category_2,
@@ -238,7 +256,6 @@ class filter(Document):
     )
     display_order = fields.IntField(default=0)
     config = fields.DictField(default={})
-    
 def save_questions_from_excel(file_path):
     df=pd.read_excel(file_path)
     for _,row in df.iterrows():
@@ -246,7 +263,6 @@ def save_questions_from_excel(file_path):
             str(row.get(f"C-{i}", "")).strip()
             for i in range(1,6)
             if pd.notna(row.get(f"C-{i}", "")) and str(row.get(f"C-{i}", "")).strip()
-            
         ]
         category_name=str(row.get('Product Type',"")).strip()
         if not category_name:
@@ -280,23 +296,19 @@ def save_questions_from_excel(file_path):
 # save_questions_from_excel("/home/lexicon/Downloads/Shopify - 27 Category - FAQ's - updated-1.xlsx")
 # def save_shopify_products_from_excel(file_path):
 #     df = pd.read_excel(file_path)
-    
 #     saved_count = 0
 #     updated_count = 0
 #     skipped_count = 0
-    
 #     for _, row in df.iterrows():
 #         try:
 #             # Get basic product info
 #             title = str(row.get("Title", "")).strip()
 #             sku = str(row.get("SKU", "")).strip()
 #             brand = str(row.get("Brand", "")).strip()
-            
 #             if not title or not sku:
 #                 print(f"⚠ Skipping row with missing Title or SKU")
 #                 skipped_count += 1
 #                 continue
-            
 #             # Build category hierarchy
 #             category_1 = str(row.get("Category-1", "")).strip()
 #             category_2 = str(row.get("Category-2", "")).strip()
@@ -304,12 +316,9 @@ def save_questions_from_excel(file_path):
 #             category_4 = str(row.get("Category-4", "")).strip()
 #             category_5 = str(row.get("Category-5", "")).strip()
 #             end_level = str(row.get("End Level", "")).strip()
-            
 #             categories = [c for c in [category_1, category_2, category_3, category_4, category_5] if c]
-            
 #             # Get or create the product_type from the most specific category
 #             product_type = categories[-1] if categories else "Uncategorized"
-            
 #             # Find or create category
 #             category_obj = None
 #             if product_type:
@@ -321,7 +330,6 @@ def save_questions_from_excel(file_path):
 #                         level=len(categories),
 #                         end_level=True
 #                     ).save()
-            
 #             # Get all attribute fields
 #             tv_type = str(row.get("TV Type", "")).strip() if pd.notna(row.get("TV Type")) else ""
 #             display_type = str(row.get("Display Type", "")).strip() if pd.notna(row.get("Display Type")) else ""
@@ -331,12 +339,10 @@ def save_questions_from_excel(file_path):
 #             refresh_rate = str(row.get("Refresh rate", "")).strip() if pd.notna(row.get("Refresh rate")) else ""
 #             connectivity = str(row.get("Connectivity", "")).strip() if pd.notna(row.get("Connectivity")) else ""
 #             smart_features = str(row.get("Smart Features", "")).strip() if pd.notna(row.get("Smart Features")) else ""
-            
 #             load_type = str(row.get("Load Type", "")).strip() if pd.notna(row.get("Load Type")) else ""
 #             capacity = str(row.get("Capacity", "")).strip() if pd.notna(row.get("Capacity")) else ""
 #             laundry_features = str(row.get("Laundry Features", "")).strip() if pd.notna(row.get("Laundry Features")) else ""
 #             energy_rating = str(row.get("Energy Rating", "")).strip() if pd.notna(row.get("Energy Rating")) else ""
-            
 #             # Build attributes dictionary for additional data
 #             attributes = {}
 #             if tv_type:
@@ -363,7 +369,6 @@ def save_questions_from_excel(file_path):
 #                 attributes["Laundry Features"] = laundry_features
 #             if energy_rating:
 #                 attributes["Energy Rating"] = energy_rating
-            
 #             # Build body_html from attributes
 #             body_html = f"<h3>{title}</h3>"
 #             if attributes:
@@ -372,16 +377,13 @@ def save_questions_from_excel(file_path):
 #                     if value:
 #                         body_html += f"<li><strong>{key}:</strong> {value}</li>"
 #                 body_html += "</ul>"
-            
 #             # Build tags list
 #             tags = categories.copy()
 #             if brand:
 #                 tags.append(brand)
 #             tags.extend([k for k in attributes.keys()])
-            
 #             # Create handle (URL-friendly version of title)
 #             handle = title.lower().replace(" ", "-").replace("|", "").replace("  ", "-").replace("/", "-")
-            
 #             # Build variant data
 #             variant = {
 #                 "sku": sku,
@@ -390,10 +392,8 @@ def save_questions_from_excel(file_path):
 #                 "inventory_quantity": 0,
 #                 "inventory_management": "shopify",
 #             }
-            
 #             # Check if product already exists by SKU
 #             existing_product = ShopifyProduct.objects(sku=sku).first()
-            
 #             if existing_product:
 #                 # Update existing product
 #                 existing_product.title = title
@@ -406,7 +406,6 @@ def save_questions_from_excel(file_path):
 #                 existing_product.updated_at = datetime.utcnow()
 #                 existing_product.last_synced = datetime.utcnow()
 #                 existing_product.category_id = category_obj
-                
 #                 # Update category fields
 #                 existing_product.category_1 = category_1
 #                 existing_product.category_2 = category_2
@@ -414,7 +413,6 @@ def save_questions_from_excel(file_path):
 #                 existing_product.category_4 = category_4
 #                 existing_product.category_5 = category_5
 #                 existing_product.end_level = end_level
-                
 #                 # Update TV attributes
 #                 existing_product.tv_type = tv_type
 #                 existing_product.display_type = display_type
@@ -423,22 +421,17 @@ def save_questions_from_excel(file_path):
 #                 existing_product.resolution = resolution
 #                 existing_product.refresh_rate = refresh_rate
 #                 existing_product.smart_features = smart_features
-                
 #                 # Update Washing Machine attributes
 #                 existing_product.load_type = load_type
 #                 existing_product.capacity = capacity
 #                 existing_product.laundry_features = laundry_features
 #                 existing_product.energy_rating = energy_rating
-                
 #                 # Update connectivity
 #                 existing_product.connectivity = connectivity
-                
 #                 # Update attributes dict
 #                 existing_product.attributes = attributes
-                
 #                 # Update variant
 #                 existing_product.variants = [variant]
-                
 #                 existing_product.save()
 #                 updated_count += 1
 #                 print(f"✓ Updated: {title} (SKU: {sku})")
@@ -446,7 +439,6 @@ def save_questions_from_excel(file_path):
 #                 # Create new product - Generate new ID
 #                 last_product = ShopifyProduct.objects.order_by('-_id').first()
 #                 new_id = (last_product._id + 1) if last_product else 1
-                
 #                 new_product = ShopifyProduct(
 #                     _id=new_id,
 #                     title=title,
@@ -463,7 +455,6 @@ def save_questions_from_excel(file_path):
 #                     updated_at=datetime.utcnow(),
 #                     last_synced=datetime.utcnow(),
 #                     category_id=category_obj,
-                    
 #                     # Category fields
 #                     category_1=category_1,
 #                     category_2=category_2,
@@ -471,7 +462,6 @@ def save_questions_from_excel(file_path):
 #                     category_4=category_4,
 #                     category_5=category_5,
 #                     end_level=end_level,
-                    
 #                     # TV attributes
 #                     tv_type=tv_type,
 #                     display_type=display_type,
@@ -480,87 +470,66 @@ def save_questions_from_excel(file_path):
 #                     resolution=resolution,
 #                     refresh_rate=refresh_rate,
 #                     smart_features=smart_features,
-                    
 #                     # Washing Machine attributes
 #                     load_type=load_type,
 #                     capacity=capacity,
 #                     laundry_features=laundry_features,
 #                     energy_rating=energy_rating,
-                    
 #                     # Connectivity
 #                     connectivity=connectivity,
-                    
 #                     # Attributes dict
 #                     attributes=attributes
 #                 )
 #                 new_product.save()
 #                 saved_count += 1
 #                 print(f"✓ Saved: {title} (SKU: {sku})")
-                
 #         except Exception as e:
 #             print(f" Error processing row: {e}")
 #             skipped_count += 1
 #             continue
-    
 #     print(f"\n{'='*50}")
 #     print(f" Total Saved: {saved_count}")
 #     print(f"🔄 Total Updated: {updated_count}")
 #     print(f"⚠ Total Skipped: {skipped_count}")
 #     print(f"📊 Total Processed: {saved_count + updated_count + skipped_count}")
 #     print(f"{'='*50}")
-    
 #     return {
 #         "saved": saved_count,
 #         "updated": updated_count,
 #         "skipped": skipped_count,
 #         "total": saved_count + updated_count + skipped_count
 #     }
-
-
 # def get_shopify_product_by_sku(sku):
 #     return ShopifyProduct.objects(sku=sku).first()
-
-
 # def get_shopify_products_by_category(category_name):
 #     category = product_category.objects(name=category_name).first()
 #     if not category:
 #         return []
-    
 #     products = ShopifyProduct.objects(category_id=category)
 #     return list(products)
-
-
 # def get_shopify_products_by_vendor(vendor_name):
 #     products = ShopifyProduct.objects(vendor=vendor_name)
 #     return list(products)
-
-
 # def get_shopify_products_by_attribute(attribute_name, attribute_value):
 #     query = {attribute_name: attribute_value}
 #     products = ShopifyProduct.objects(**query)
 #     return list(products)
-
-
 # def delete_all_shopify_products():
 #     count = ShopifyProduct.objects.count()
 #     ShopifyProduct.objects.delete()
 #     print(f"🗑 Deleted {count} products from shopify_products collection")
 #     return count
-
-
 # Example usage:
 # result = save_shopify_products_from_excel("/home/lexicon/Downloads/Shopify - Appliances - Product Finder (1).xlsx")
 # print(f"Import completed: {result}")
 import pandas as pd
 from collections import defaultdict
-
 def save_filters_from_excel(file_path):
     """
     Reads Excel file and creates filter documents for each End Level category
     based on the attributes present in the data.
     """
     df = pd.read_excel(file_path)
-    
     # Define attribute mappings for different categories
     # Format: {column_name: (display_name, filter_type)}
     attribute_mappings = {
@@ -571,38 +540,31 @@ def save_filters_from_excel(file_path):
         "OS": ("Operating System", "multi-select"),
         "Resolution": ("Resolution", "multi-select"),
         "Refresh rate": ("Refresh Rate", "multi-select"),
-        
         # Washing Machine Attributes
         "Load Type": ("Load Type", "multi-select"),
         "Capacity": ("Capacity", "multi-select"),
         "Laundry Features": ("Laundry Features", "multi-select"),
         "Energy Rating": ("Energy Rating", "multi-select"),
-        
         # Common Attributes
         "Connectivity": ("Connectivity", "multi-select"),
         "Smart Features": ("Smart Features", "multi-select"),
         "Brand": ("Brand", "multi-select")
     }
-    
     # Group data by End Level category
     category_data = defaultdict(lambda: defaultdict(set))
-    
     for _, row in df.iterrows():
         end_level = str(row.get("End Level", "")).strip()
         if not end_level:
             continue
-        
         # Collect unique values for each attribute
         for col_name, (display_name, filter_type) in attribute_mappings.items():
             value = str(row.get(col_name, "")).strip()
             if value and value.lower() not in ["", "nan", "none"]:
                 category_data[end_level][col_name].add(value)
-    
     # Statistics
     saved_count = 0
     updated_count = 0
     skipped_count = 0
-    
     # Create filters for each category
     for category_name, attributes in category_data.items():
         # Find or create category
@@ -613,32 +575,25 @@ def save_filters_from_excel(file_path):
                 name=category_name,
                 end_level=True
             ).save()
-        
         print(f"\n📁 Processing category: {category_name}")
-        
         # Create filters for each attribute
         display_order = 1
         for col_name, values in attributes.items():
             if col_name not in attribute_mappings:
                 continue
-            
             display_name, filter_type = attribute_mappings[col_name]
-            
             # Convert set to sorted list
             options = sorted(list(values))
-            
             # Build filter config
             config = {
                 "options": options,
                 "display_style": "checkbox" if filter_type == "multi-select" else "dropdown"
             }
-            
             # Check if filter already exists
             existing_filter = filter.objects(
                 category_id=category_obj,
                 name=display_name
             ).first()
-            
             if existing_filter:
                 # Update existing filter
                 existing_filter.filter_type = filter_type
@@ -659,24 +614,19 @@ def save_filters_from_excel(file_path):
                 new_filter.save()
                 saved_count += 1
                 print(f"  ✓ Created filter: {display_name} ({len(options)} options)")
-            
             display_order += 1
-    
     print(f"\n{'='*60}")
     print(f"✅ Total Filters Created: {saved_count}")
     print(f"🔄 Total Filters Updated: {updated_count}")
     print(f"⚠  Total Skipped: {skipped_count}")
     print(f"📊 Total Processed: {saved_count + updated_count}")
     print(f"{'='*60}")
-    
     return {
         "saved": saved_count,
         "updated": updated_count,
         "skipped": skipped_count,
         "total": saved_count + updated_count
     }
-
-
 def get_filters_by_category(category_name):
     """
     Retrieve all filters for a specific category.
@@ -685,11 +635,8 @@ def get_filters_by_category(category_name):
     category_obj = product_category.objects(name=category_name).first()
     if not category_obj:
         return []
-    
     filters = filter.objects(category_id=category_obj).order_by('display_order')
     return list(filters)
-
-
 def get_filters_by_category_id(category_id):
     """
     Retrieve all filters for a specific category by ID.
@@ -698,11 +645,8 @@ def get_filters_by_category_id(category_id):
     category_obj = product_category.objects(id=category_id).first()
     if not category_obj:
         return []
-    
     filters = filter.objects(category_id=category_obj).order_by('display_order')
     return list(filters)
-
-
 def delete_filters_by_category(category_name):
     """
     Delete all filters for a specific category.
@@ -711,13 +655,10 @@ def delete_filters_by_category(category_name):
     if not category_obj:
         print(f"⚠ Category '{category_name}' not found")
         return 0
-    
     count = filter.objects(category_id=category_obj).count()
     filter.objects(category_id=category_obj).delete()
     print(f"🗑 Deleted {count} filters for category '{category_name}'")
     return count
-
-
 def delete_all_filters():
     """
     Delete all filters from the database.
@@ -726,11 +667,8 @@ def delete_all_filters():
     filter.objects.delete()
     print(f"🗑 Deleted {count} filters from database")
     return count
-
-
 # result = save_filters_from_excel("/home/lexicon/Downloads/Shopify - Appliances - Product Finder (1).xlsx")
 # print(f"Filter import completed: {result}")
-
 # tv_filters = get_filters_by_category("TV")
 # for f in tv_filters:
 #     print(f"Filter: {f.name}, Type: {f.filter_type}, Options: {f.config.get('options', [])}")
