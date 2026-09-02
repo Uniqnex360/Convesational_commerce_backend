@@ -5,13 +5,7 @@ from typing import Any, Dict, List
 
 
 class FitRuleProvider:
-    """
-    Loads merchant/category-specific fit rules.
-
-    Rules can come from:
-    - SHOPNEXAI_FIT_RULES_JSON during development
-    - MongoDB fit_rule documents in production
-    """
+   
 
     def get_rules(self, category: str | None) -> List[Dict[str, Any]]:
         if not category:

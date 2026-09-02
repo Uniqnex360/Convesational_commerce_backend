@@ -1,9 +1,3 @@
-"""Product search service for ShopNexAI.
-
-This service performs catalog retrieval and deterministic ranking. It does not
-let an LLM invent products or decide availability, price, or hard constraints.
-The LLM is used only by RequirementExtractor to understand natural language.
-"""
 
 from typing import Any, Dict, List, Optional
 
@@ -33,11 +27,7 @@ class ProductSearchService:
         strict: bool = True,
         exclude_ids: Optional[List[str]] = None,
     ) -> ProductSearchResponse:
-        """Search and rank products for a natural-language request.
-
-        The first pass enforces hard constraints. If no exact result exists,
-        the service returns ranked relaxed matches and marks exact_match=False.
-        """
+       
         limit = max(1, min(limit, 50))
         requirements = requirements or await self._extract_requirements(query)
 
@@ -73,7 +63,6 @@ class ProductSearchService:
         requirements: Optional[RequirementSummary] = None,
         limit: int = 10,
     ) -> ProductSearchResponse:
-        """Find alternatives while excluding the currently viewed product."""
         current = self.repository.get(product_id)
         if not current:
             return ProductSearchResponse(products=[], total=0, exact_match=False)
@@ -92,8 +81,8 @@ class ProductSearchService:
 
         if requirements is None:
             requirements = await self._extract_requirements(query)
-        if not requirements.category:
-            requirements.category = current.get("category")
+        # if not requirements.category:
+        #     requirements.category = current.get("category")
 
         return await self.search(
             query=query,
@@ -125,6 +114,9 @@ class ProductSearchService:
             currency=product.get("currency"),
             brand=product.get("brand"),
             category=product.get("category"),
+            image=product.get("image"),
+            handle=product.get("handle"),
+            product_url=product.get("product_url"),
             available=product.get("available"),
             score=product.get("score"),
             reasons=product.get("reasons", []),

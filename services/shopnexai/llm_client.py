@@ -14,11 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class LLMClient:
-    """Small async LLM wrapper.
-
-    LLM calls are optional. ShopNexAI has deterministic fallbacks so search,
-    fit checks, and API startup do not depend on an LLM being available.
-    """
+   
 
     def __init__(self) -> None:
         self.model = os.getenv("SHOPNEXAI_LLM_MODEL", "gpt-4o-mini")

@@ -7,7 +7,6 @@ from .rule_provider import FitRuleProvider
 
 
 class FitEngine:
-    """Evaluates requirements using generic checks and configured fit rules."""
 
     def __init__(self, rules: FitRuleProvider | None = None) -> None:
         self.rules = rules or FitRuleProvider()

@@ -52,6 +52,8 @@ class ProductCard(BaseModel):
     title: str
     price: Optional[float] = None
     currency: Optional[str] = None
+    handle: Optional[str] = None
+    product_url: Optional[str] = None
     brand: Optional[str] = None
     category: Optional[str] = None
     available: Optional[bool] = None
@@ -89,6 +91,7 @@ class ProductSearchResponse(BaseModel):
 class CompareRequest(BaseModel):
     product_ids: List[str] = Field(..., min_length=2, max_length=5)
     requirements: Optional[RequirementSummary] = None
+    session_id: Optional[str] = None
 
 
 class ExplainRequest(BaseModel):

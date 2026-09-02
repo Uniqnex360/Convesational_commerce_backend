@@ -123,27 +123,27 @@ async def get_products_filtered(
         for p in product_list:
             p["price"] = f"${p.get('price', 0)} USD"
             
-            # ✅ CLEAN THE HANDLE - Remove quotes and invalid characters
+            
             if p.get("handle"):
                 handle = p["handle"]
-                # Remove quotes and other invalid URL characters
+                
                 handle = handle.replace('"', '').replace("'", '')
                 handle = handle.lower().replace(' ', '-').replace('/', '-')
-                # Remove any other special characters except hyphens and alphanumeric
+                
                 import re
                 handle = re.sub(r'[^a-z0-9-]', '', handle)
-                # Replace multiple hyphens with single
+                
                 handle = re.sub(r'-+', '-', handle)
-                # Remove leading/trailing hyphens
+                
                 handle = handle.strip('-')
                 p["handle"] = handle
             
             if not p.get('image'):
                 p['image'] = 'https://via.placeholder.com/300'
         
-        print(f'✅ Found {len(product_list)} products')
+        print(f' Found {len(product_list)} products')
         if product_list:
-            print(f'📦 Sample product: {product_list[0]}')
+            print(f' Sample product: {product_list[0]}')
         
         return {"products": product_list}
         
@@ -158,10 +158,7 @@ async def get_single_category(
     category_id: str,
     x_api_key: str = Header(..., alias="X-API-KEY")
 ):
-    """
-    Return one category document (id, name, breadcrumb …)
-    so the widget can build the collection handle.
-    """
+  
     verify_api_key(x_api_key)
     try:
         cat = product_category.objects.get(id=ObjectId(category_id))

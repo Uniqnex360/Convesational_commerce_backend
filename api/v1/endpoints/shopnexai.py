@@ -87,10 +87,17 @@ async def compare_products(
     ),
 ):
     _authenticate(x_api_key)
-
+    print(
+    "COMPARE REQUEST:",
+    {
+        "session_id": request.session_id,
+        "product_ids": request.product_ids,
+    }
+)
     return await shopnexai.compare_products(
         request.product_ids,
         request.requirements,
+         session_id=request.session_id,
     )
 
 

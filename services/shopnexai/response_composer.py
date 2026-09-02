@@ -17,7 +17,6 @@ from models.agent_schemas import (
 
 
 class ResponseComposer:
-    """Build frontend-friendly ShopNexAI responses."""
 
     def recommendations(
         self,

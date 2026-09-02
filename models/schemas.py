@@ -525,10 +525,7 @@ def save_questions_from_excel(file_path):
 import pandas as pd
 from collections import defaultdict
 def save_filters_from_excel(file_path):
-    """
-    Reads Excel file and creates filter documents for each End Level category
-    based on the attributes present in the data.
-    """
+    
     df = pd.read_excel(file_path)
     # Define attribute mappings for different categories
     # Format: {column_name: (display_name, filter_type)}
@@ -616,10 +613,10 @@ def save_filters_from_excel(file_path):
                 print(f"  ✓ Created filter: {display_name} ({len(options)} options)")
             display_order += 1
     print(f"\n{'='*60}")
-    print(f"✅ Total Filters Created: {saved_count}")
-    print(f"🔄 Total Filters Updated: {updated_count}")
-    print(f"⚠  Total Skipped: {skipped_count}")
-    print(f"📊 Total Processed: {saved_count + updated_count}")
+    print(f" Total Filters Created: {saved_count}")
+    print(f" Total Filters Updated: {updated_count}")
+    print(f" Total Skipped: {skipped_count}")
+    print(f" Total Processed: {saved_count + updated_count}")
     print(f"{'='*60}")
     return {
         "saved": saved_count,
@@ -628,29 +625,21 @@ def save_filters_from_excel(file_path):
         "total": saved_count + updated_count
     }
 def get_filters_by_category(category_name):
-    """
-    Retrieve all filters for a specific category.
-    Returns filters sorted by display_order.
-    """
+    
     category_obj = product_category.objects(name=category_name).first()
     if not category_obj:
         return []
     filters = filter.objects(category_id=category_obj).order_by('display_order')
     return list(filters)
 def get_filters_by_category_id(category_id):
-    """
-    Retrieve all filters for a specific category by ID.
-    Returns filters sorted by display_order.
-    """
+    
     category_obj = product_category.objects(id=category_id).first()
     if not category_obj:
         return []
     filters = filter.objects(category_id=category_obj).order_by('display_order')
     return list(filters)
 def delete_filters_by_category(category_name):
-    """
-    Delete all filters for a specific category.
-    """
+   
     category_obj = product_category.objects(name=category_name).first()
     if not category_obj:
         print(f"⚠ Category '{category_name}' not found")
@@ -660,9 +649,7 @@ def delete_filters_by_category(category_name):
     print(f"🗑 Deleted {count} filters for category '{category_name}'")
     return count
 def delete_all_filters():
-    """
-    Delete all filters from the database.
-    """
+    
     count = filter.objects.count()
     filter.objects.delete()
     print(f"🗑 Deleted {count} filters from database")

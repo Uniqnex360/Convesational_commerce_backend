@@ -5,15 +5,14 @@ from fastapi import HTTPException
 import httpx
 import jwt
 
-# ✅ Add Shopify credentials to API key config
 API_KEYS = {
     'demo_key_12345': {
         'name': "Demo store",
         "domain": "*",
         "rate_limit": 100,
-        "platform": "shopify",  # <-- ADD
-        "shop_domain": os.getenv("SHOPIFY_STORE", "rje8b8-na.myshopify.com"),  # <-- ADD
-        "shopify_access_token": os.getenv("SHOPIFY_ACCESS_TOKEN"),  # <-- ADD
+        "platform": "shopify",  
+        "shop_domain": os.getenv("SHOPIFY_STORE", "rje8b8-na.myshopify.com"),  
+        "shopify_access_token": os.getenv("SHOPIFY_ACCESS_TOKEN"),  
     }
 }
 
@@ -46,8 +45,7 @@ def check_rate_limit(api_key: str, limit: int = 100):
 
 
 async def _call_internal_auth_check(customer_id: str, customer_token, x_api_key: str) -> dict:
-    """Internal helper — calls our own /orders/auth-check (for orchestration layer)"""
-    # For now, trust the customer_id if it's provided
+    
     if customer_id:
         return {"authenticated": True, "customer_id": str(customer_id)}
     return {"authenticated": False}
@@ -60,7 +58,6 @@ async def _call_internal_verify(
     session_id: str,
     x_api_key: str,
 ) -> dict:
-    """Internal helper — verify guest order using Shopify API"""
     try:
         shop_domain = os.getenv("SHOPIFY_STORE")
         access_token = os.getenv("SHOPIFY_ACCESS_TOKEN")
@@ -68,7 +65,7 @@ async def _call_internal_verify(
         if not shop_domain or not access_token:
             return {"verified": False, "message": "Backend not configured"}
         
-        # Search for order by order_number
+        
         async with httpx.AsyncClient(timeout=10) as client:
             url = f"https://{shop_domain}/admin/api/2024-01/orders.json?name={order_number}&status=any"
             headers = {"X-Shopify-Access-Token": access_token}
@@ -86,7 +83,7 @@ async def _call_internal_verify(
             
             order = orders[0]
             
-            # Verify email
+            
             order_email = order.get("email", "").lower()
             if email and order_email == email.lower():
                 return {
@@ -95,7 +92,7 @@ async def _call_internal_verify(
                     "verify_token": _issue_verify_token(str(order["id"]))
                 }
             
-            # Verify phone last 4
+            
             order_customer = order.get("customer", {})
             order_phone = order_customer.get("phone", "")
             if phone_last4 and order_phone and order_phone[-4:] == phone_last4:
@@ -113,18 +110,16 @@ async def _call_internal_verify(
 
 
 def _issue_verify_token(order_id: str) -> str:
-    """Issue a short-lived verification token (5 minutes)"""
-    secret = os.getenv("VERIFY_TOKEN_SECRET", "change-this-in-production-please")
+    secret = os.getenv("VERIFY_TOKEN_SECRET")
     payload = {
         "order_id": order_id,
         "iat": int(time.time()),
-        "exp": int(time.time()) + 300  # 5 minutes
+        "exp": int(time.time()) + 300  
     }
     return jwt.encode(payload, secret, algorithm="HS256")
 
 
 def validate_verify_token(token: str) -> dict:
-    """Validate a verify token"""
     import jwt
     secret = os.getenv("VERIFY_TOKEN_SECRET", "change-this-in-production-please")
     try:

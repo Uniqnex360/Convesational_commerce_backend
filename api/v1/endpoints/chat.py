@@ -120,7 +120,6 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
         if not user_query:
             raise HTTPException(status_code=400, detail="Message is required")
 
-        # ✅ Accept flexible product context
         product_context = request.product_context or {}
         product_id = product_context.get('productId') or request.product_id
         sku = product_context.get('sku')
@@ -130,7 +129,6 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
         needs_full_details = False
         shopify_product_id = None
 
-        # ✅ Shopify detection logic
         if product_id and (sku == 'shopify' or str(product_id).startswith('gid://shopify/')):
             needs_full_details = True
             shopify_product_id = product_id
@@ -143,11 +141,11 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
             try:
                 product_response = await get_product_details(shopify_product_id, x_api_key)
                 product_context.update(product_response)
-                print(f"✅ Fetched Shopify product: {product_context.get('title', 'Unknown')}")
+                print(f" Fetched Shopify product: {product_context.get('title', 'Unknown')}")
             except Exception as e:
                 print(f"⚠️ Failed to fetch Shopify details: {str(e)} — continuing with given context")
 
-        # ✅ Check if we already have this Q/A in the DB
+        
         response_text = None
         if shopify_product_id:
             try:
@@ -161,7 +159,7 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
                     ).first()
 
                     if matching_question:
-                        print("✅ Found DB match, returning cached answer")
+                        print(" Found DB match, returning cached answer")
                         return ChatResponse(
                             response=matching_question.answer,
                             session_id=request.session_id,
@@ -172,8 +170,7 @@ async def chat_endpoint(request: ChatRequest, x_api_key: str = Header(..., alias
             except Exception as e:
                 print(f"⚠️ DB check error: {str(e)}, using AI")
 
-        # ✅ If not found, fall back to AI
-        print("🤖 Using AI to generate response...")
+        print(" Using AI to generate response...")
         response_text = await chatbot_service.process_chat_message(
             user_query,
             product_context,

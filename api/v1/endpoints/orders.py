@@ -21,10 +21,7 @@ router = APIRouter()
 
 
 def _get_adapter(config: dict) -> ShopifyOrderAdapter:
-    """
-    Build platform adapter from merchant config (resolved via verify_api_key).
-    Swap this for WooCommerce/custom-connector adapter based on config['platform'].
-    """
+   
     if config.get("platform") != "shopify":
         raise HTTPException(status_code=501, detail="Platform not yet supported for order lookup")
     return ShopifyOrderAdapter(
@@ -38,10 +35,7 @@ async def auth_check(
     request: AuthCheckRequest,
     x_api_key: str = Header(..., alias="X-API-Key"),
 ):
-    """
-    Authenticated-path: host platform passes customer_token/customer_id.
-    We independently verify against Shopify before trusting it.
-    """
+   
     config = verify_api_key(x_api_key)
     check_rate_limit(x_api_key, config.get("rate_limit", 100))
 
@@ -62,10 +56,7 @@ async def verify_order(
     session_id: str = Header(..., alias="X-Session-Id"),
     x_api_key: str = Header(..., alias="X-API-Key"),
 ):
-    """
-    Guest-path: order_number + email/phone_last4 → order_id + short-lived verify_token.
-    Stricter rate-limit than general chat — enumeration-guard.
-    """
+   
     config = verify_api_key(x_api_key)
     check_order_verify_rate_limit(x_api_key, session_id)  # separate stricter bucket
 
@@ -98,11 +89,7 @@ async def get_order_status(
     customer_id: Optional[str] = None,
     x_api_key: str = Header(..., alias="X-API-Key"),
 ):
-    """
-    Fetch order detail — requires EITHER a valid verify_token (guest-path,
-    issued by /orders/verify) OR a customer_id already confirmed via
-    /orders/auth-check. Never accept order_id alone with no proof of ownership.
-    """
+    
     config = verify_api_key(x_api_key)
     check_rate_limit(x_api_key, config.get("rate_limit", 100))
 
@@ -137,11 +124,7 @@ async def list_customer_orders(
     customer_id: str,
     x_api_key: str = Header(..., alias="X-API-Key"),
 ):
-    """
-    Authenticated-path only. customer_id must already be verified via
-    /orders/auth-check in this session — this endpoint itself does not
-    re-verify (caller/bot-orchestration layer responsible for sequencing).
-    """
+  
     config = verify_api_key(x_api_key)
     check_rate_limit(x_api_key, config.get("rate_limit", 100))
 
@@ -155,12 +138,7 @@ async def cancel_order_endpoint(
     customer_id: Optional[str] = Header(None, alias="X-Customer-Id"),
     x_api_key: str = Header(..., alias="X-API-Key"),
 ):
-    """
-    Cancel an order. Requires EITHER:
-      - verify_token from prior /orders/verify, OR
-      - customer_id from prior /orders/auth-check + ownership re-verified here
-    Plus: explicit confirmation in body (Pydantic enforces this).
-    """
+   
     config = verify_api_key(x_api_key)
     check_rate_limit(x_api_key, config.get("rate_limit", 100))
     
@@ -211,10 +189,7 @@ async def create_return_endpoint(
     customer_id: Optional[str] = Header(None, alias="X-Customer-Id"),
     x_api_key: str = Header(..., alias="X-API-Key"),
 ):
-    """
-    Initiate a return for line items in an order.
-    Same auth-requirement as cancel.
-    """
+    
     config = verify_api_key(x_api_key)
     check_rate_limit(x_api_key, config.get("rate_limit", 100))
     

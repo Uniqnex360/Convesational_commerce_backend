@@ -5,10 +5,7 @@ from models.agent_schemas import AgentIntent
 
 
 class IntentEngine:
-    """
-    Detects customer intent using explicit frontend intent first,
-    then deterministic phrase matching.
-    """
+  
 
     def detect(
         self,

@@ -3,11 +3,9 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from models.schemas import ShopifyProduct
 
-
+import os
 class ProductRepository:
-    """
-    MongoDB product access with normalized ShopNexAI product data.
-    """
+  
 
     def categories(self, limit: int = 500) -> List[str]:
         try:
@@ -306,7 +304,25 @@ class ProductRepository:
                 ),
             ),
         )
+        storefront_url = (
+            os.getenv("SHOPNEXAI_STOREFRONT_URL") or ""
+        ).rstrip("/")
 
+        handle = get_value("handle")
+
+        product_url = (
+            get_value("product_url")
+            or get_value("url")
+        )
+
+        if (
+            not product_url
+            and storefront_url
+            and handle
+        ):
+            product_url = (
+                f"{storefront_url}/products/{handle}"
+            )
         return {
             "id": str(product_id),
             "title": (
@@ -331,6 +347,12 @@ class ProductRepository:
                 or get_value("vendor")
                 or get_value("brand_name")
             ),
+            "image": (
+                get_value("image_url")
+                or get_value("image")
+            ),
+            "handle": handle,
+            "product_url": product_url,
             "category": (
                 get_value("product_type")
                 or get_value("category")

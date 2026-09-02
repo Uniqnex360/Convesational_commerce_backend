@@ -33,7 +33,6 @@ class ExplanationEngine:
         product: Dict[str, Any],
         question: str,
     ) -> str:
-        """Answer a product question from catalog data only."""
         fallback = self._question_fallback(product, question)
         response = await self.llm.text_completion(
             system_prompt=(

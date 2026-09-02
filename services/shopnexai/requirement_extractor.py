@@ -1,27 +1,17 @@
 import re
 from typing import Any, Dict, List, Optional
-
 from models.agent_schemas import RequirementSummary
-
 from .llm_client import LLMClient
-
-
 class RequirementExtractor:
     def __init__(self, llm: Optional[LLMClient] = None) -> None:
         self.llm = llm or LLMClient()
-
     async def extract(
         self,
         message: str,
         known_categories: Optional[List[str]] = None,
         attribute_vocabulary: Optional[Dict[str, List[str]]] = None,
     ) -> RequirementSummary:
-        """Extract merchant-specific requirements without fixed product examples.
-
-        Catalog categories and attribute values are supplied by the repository.
-        An LLM is preferred for natural language; the fallback only performs
-        generic parsing and never supplies category-specific business rules.
-        """
+       
         known_categories = known_categories or []
         attribute_vocabulary = attribute_vocabulary or {}
         data = await self.llm.json_completion(
@@ -44,17 +34,28 @@ class RequirementExtractor:
         if data:
             try:
                 parsed = RequirementSummary.model_validate(data)
-
-                parsed.category = self._canonical_category(
-                    parsed.category,
+                deterministic = self._heuristic_extract(
+                    message,
                     known_categories,
+                    attribute_vocabulary,
+                )
+                parsed.category = deterministic.category
+                parsed.quantity = deterministic.quantity
+                parsed.budget_min = deterministic.budget_min
+                parsed.budget_max = deterministic.budget_max
+                parsed.currency = deterministic.currency
+                parsed.use_case = deterministic.use_case
+                parsed.hard_constraints = dict(
+                    deterministic.hard_constraints
                 )
 
+                parsed.preferences = dict(
+                    deterministic.preferences
+                )
                 return parsed
             except Exception:
                 pass
         return self._heuristic_extract(message, known_categories, attribute_vocabulary)
-
     def _heuristic_extract(
         self,
         message: str,
@@ -65,7 +66,6 @@ class RequirementExtractor:
         budget_min: Optional[float] = None
         budget_max: Optional[float] = None
         currency: Optional[str] = None
-
         money_pattern = re.compile(
             r"(?P<prefix>under|below|less than|up to|max(?:imum)?|between|from)?\s*"
             r"(?P<currency>₹|rs\.?|inr|\$|usd)?\s*"
@@ -94,64 +94,52 @@ class RequirementExtractor:
                 currency = "INR"
             elif "$" in c or "usd" in c:
                 currency = "USD"
-
         if amounts:
             if len(amounts) >= 2 and "between" in text:
                 budget_min, budget_max = amounts[0][1], amounts[1][1]
             else:
                 budget_max = amounts[-1][1]
-
         quantity_match = re.search(
             r"\b(\d+)\s+(?:(?:[a-z-]+)\s+){0,3}"
             r"(?:products?|items?|chairs?|stools?|units?)\b",
             text,
         )
         quantity = int(quantity_match.group(1)) if quantity_match else None
-
         category = self._find_category(text, known_categories)
         use_case = self._find_use_case(text)
         hard_constraints: Dict[str, Any] = {}
         preferences: Dict[str, Any] = {}
-
         if budget_max is not None:
             hard_constraints["budget_max"] = budget_max
         if budget_min is not None:
             hard_constraints["budget_min"] = budget_min
         if "in stock" in text or "available" in text:
             hard_constraints["availability"] = True
-
         for field, values in attribute_vocabulary.items():
             field_label = re.sub(
                 r"[_-]+",
                 " ",
                 str(field).lower(),
             ).strip()
-
             for value in values:
                 value_text = str(value).strip().lower()
-
                 if not value_text:
                     continue
-
                 if (
                     len(value_text) == 1
                     and field_label not in text
                 ):
                     continue
-
                 if re.search(
                     rf"\b{re.escape(value_text)}\b",
                     text,
                 ):
                     preferences[self._field_name(field)] = value
                     break
-
-        # Generic language signals, not product-specific facts.
         if re.search(r"\b(back|backrest|back support|headrest)\b", text):
             preferences["backrest"] = True
         if any(word in text for word in ("comfortable", "comfort", "ergonomic")):
             preferences["comfort"] = "high"
-
         return RequirementSummary(
             category=category,
             quantity=quantity,
@@ -170,16 +158,13 @@ class RequirementExtractor:
     ) -> Optional[str]:
         if not category:
             return None
-
         normalized_category = cls._field_name(category)
-
         for known_category in known_categories:
             if (
                 cls._field_name(known_category)
                 == normalized_category
             ):
                 return known_category
-
         return None
     @staticmethod
     def _parse_number(number: str, suffix: Optional[str]) -> Optional[float]:
@@ -193,11 +178,9 @@ class RequirementExtractor:
         elif suffix == "lakh":
             value *= 100000
         return value
-
     @staticmethod
     def _field_name(value: str) -> str:
         return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
-
     @classmethod
     def _find_category(cls, text: str, known_categories: List[str]) -> Optional[str]:
         text_tokens = set(re.findall(r"[a-z0-9]+", text.lower()))
@@ -208,11 +191,9 @@ class RequirementExtractor:
                 matches.append((len(category_tokens), str(category)))
         if matches:
             return max(matches, key=lambda item: item[0])[1]
-
-
         return None
-
     @staticmethod
     def _find_use_case(text: str) -> Optional[str]:
         match = re.search(r"\bfor\s+(?:a|an|the)?\s*([a-z][a-z0-9 -]{2,40}?)(?=\s+(?:under|below|with|and)|$)", text)
         return match.group(1).strip() if match else None
+
