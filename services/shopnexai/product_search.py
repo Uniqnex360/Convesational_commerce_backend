@@ -6,7 +6,6 @@ from models.agent_schemas import ProductCard, ProductSearchResponse, Requirement
 from .product_repository import ProductRepository
 from .ranking_engine import RankingEngine
 from .requirement_extractor import RequirementExtractor
-from backend.models.agent_schemas import ProductSearchResponse
 
 
 class ProductSearchService:
