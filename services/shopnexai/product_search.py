@@ -24,6 +24,7 @@ class ProductSearchService:
         query: str = "",
         requirements: Optional[RequirementSummary] = None,
         limit: int = 10,
+        
         strict: bool = True,
         exclude_ids: Optional[List[str]] = None,
     ) -> ProductSearchResponse:

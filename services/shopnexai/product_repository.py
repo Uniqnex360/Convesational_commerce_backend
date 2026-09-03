@@ -77,6 +77,7 @@ class ProductRepository:
         self,
         query: str = "",
         limit: int = 100,
+        category: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         try:
             documents = list(
@@ -91,6 +92,13 @@ class ProductRepository:
             self.normalize(document)
             for document in documents
         ]
+
+        if category:
+            cat_lower = category.lower()
+            products = [
+                p for p in products
+                if str(p.get("category", "")).lower() == cat_lower
+            ]
 
         query_tokens = self._tokens(query)
 
