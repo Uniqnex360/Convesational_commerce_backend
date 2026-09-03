@@ -142,7 +142,7 @@ class RankingEngine:
                 and not self._matches(actual, expected)
             ):
                 failures.append(
-                    f"{key} does not match"`
+                    f"{key} does not match"
                 )
 
         return failures
