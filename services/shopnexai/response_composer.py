@@ -49,16 +49,35 @@ class ResponseComposer:
         requirements: RequirementSummary,
         query: Optional[str] = None,
     ) -> AgentChatResponse:
+        availability_requested = (
+            requirements.get("hard_constraints", {}).get("availability") is True
+        )
+
+        if availability_requested:
+            message = (
+                "No currently available products were found for this request. "
+                "Matching products may currently be out of stock."
+            )
+            suggestion = "Try another product or check back later."
+        else:
+            message = (
+                "I couldn't find an exact match. "
+                "You can try a different category, budget, or preference."
+            )
+            suggestion = "Relax one or more filters."
+
         return self._response(
             session_id=session_id,
             intent=self._intent_value(intent),
-            
-            message="I couldn't find an exact match. You can try a different category, budget, or preference.",
+            message=message,
             requirements=requirements,
             blocks=[
                 AgentBlock(
                     type="zero_results",
-                    data={"query": query, "suggestion": "Relax one or more filters."},
+                    data={
+                        "query": query,
+                        "suggestion": suggestion,
+                    },
                 )
             ],
         )
