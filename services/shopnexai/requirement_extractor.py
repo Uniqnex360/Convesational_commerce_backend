@@ -24,8 +24,12 @@ class RequirementExtractor:
             user_prompt=(
                 "Extract this message into keys category, quantity, budget_min, "
                 "budget_max, currency, use_case, hard_constraints, preferences, "
-                "and product_ids. Prefer one of these catalog categories when "
-                "appropriate: " + ", ".join(known_categories[:100]) +
+                "product_ids, and scope. scope must be \"current_product\" if the "
+                "message is about the single product currently being viewed "
+                "(uses words like this/it/that, or asks about its specs/price/fit), "
+                "or \"catalog\" if it asks whether other/different/cheaper/alternative "
+                "products exist, or browses the wider catalog. Prefer one of these "
+                "catalog categories when appropriate: " + ", ".join(known_categories[:100]) +
                 ". Known catalog attributes and values: " +
                 str({key: values[:30] for key, values in attribute_vocabulary.items()}) +
                 ". Message: " + message

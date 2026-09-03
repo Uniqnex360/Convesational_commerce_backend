@@ -30,6 +30,7 @@ class RequirementSummary(BaseModel):
     hard_constraints: Dict[str, Any] = Field(default_factory=dict)
     preferences: Dict[str, Any] = Field(default_factory=dict)
     product_ids: List[str] = Field(default_factory=list)
+    scope: Optional[str] = None
 
 
 class AgentChatRequest(BaseModel):

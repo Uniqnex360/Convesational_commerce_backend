@@ -89,7 +89,8 @@ class ShopNexAIOrchestrator:
             ) is True
             or bool(requirements.preferences)
         )
-        if intent == AgentIntent.product_question and not product_id and not has_real_product and shopping_signals:
+        # if intent == AgentIntent.product_question and not product_id and not has_real_product and shopping_signals:
+        if intent == AgentIntent.product_question and shopping_signals and requirements.scope == "catalog":
             intent = AgentIntent.product_finder
         if (
             not product_id
@@ -451,6 +452,7 @@ class ShopNexAIOrchestrator:
         data = previous.model_dump()
         current_data = current.model_dump()
         data["category"] = current_data.get("category")
+        data["scope"] = current_data.get("scope")
         for key in ( "quantity", "budget_min", "budget_max", "currency", "use_case"):
             if current_data.get(key) is not None:
                 data[key] = current_data[key]

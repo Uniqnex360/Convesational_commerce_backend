@@ -31,7 +31,11 @@ class ProductSearchService:
         limit = max(1, min(limit, 50))
         requirements = requirements or await self._extract_requirements(query)
 
-        candidates = self.repository.search(query=query, limit=max(100, limit * 5))
+        candidates = self.repository.search(
+            query=query,
+            limit=max(100, limit * 5),
+            category=(requirements.category if requirements else None),
+        )
         ranked = self.ranking.rank(
             candidates,
             requirements,
