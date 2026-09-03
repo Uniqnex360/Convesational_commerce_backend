@@ -9,6 +9,8 @@ from models.agent_schemas import (
     ProductSearchResponse,
     RequirementSummary,
 )
+from .category_resolver import PureDynamicCategoryResolver, is_brand_request
+
 from .compatibility_engine import CompatibilityEngine
 from .comparison_engine import ComparisonEngine
 from .explanation_engine import ExplanationEngine
@@ -36,6 +38,7 @@ class ShopNexAIOrchestrator:
         self.explanations = ExplanationEngine()
         self.composer = ResponseComposer()
         self._session_requirements: Dict[str, RequirementSummary] = {}
+        self.category_resolver = PureDynamicCategoryResolver()
     async def process_chat(
         self,
         message: str,
@@ -47,6 +50,7 @@ class ShopNexAIOrchestrator:
         api_key: Optional[str] = None,
     ) -> AgentChatResponse:
         session_id = session_id or f"snx_{secrets.token_urlsafe(12)}"
+        self.category_resolver.sync_catalog_categories(self.products.categories())
         intent = self.intent_engine.detect(message, forced_intent)
         extracted = await self.requirement_extractor.extract(
             message,
@@ -54,6 +58,10 @@ class ShopNexAIOrchestrator:
             attribute_vocabulary=self.products.attribute_vocabulary(),
         )
         requirements = self._remember_requirements(session_id, extracted)
+        if not requirements.category:
+            resolved_cat = self.category_resolver.resolve(message)
+            if resolved_cat:
+                requirements.category = resolved_cat
         print(
             "CURRENT SESSION:",
             session_id,
@@ -94,6 +102,55 @@ class ShopNexAIOrchestrator:
             )
         ):
             product_id = requirements.product_ids[0]
+        if is_brand_request(message):
+            target_cat = requirements.category
+            
+            
+            all_products = self.products.get_all()
+            
+            matching_products = [
+                p for p in all_products
+                if p.get("available") is not False
+                and (
+                    not target_cat
+                    or str(p.get("category", "")).lower() == target_cat.lower()
+                    or target_cat.lower() in str(p.get("title", "")).lower()
+                )
+            ]
+            
+            
+            distinct_brands = list(dict.fromkeys(
+                p.get("brand") for p in matching_products
+                if p.get("brand") 
+                and p.get("brand").strip().lower() not in ("e-commerce store", "unknown", "")
+            ))
+            
+            if distinct_brands:
+                cat_label = target_cat or "catalog"
+                brand_list_text = (
+                    f"Here are the available brands for **{cat_label}**:\n\n"
+                    + "\n".join(f"• {b}" for b in distinct_brands)
+                )
+                
+                
+                cards = [self._card(p) for p in matching_products[:6]]
+                
+                return AgentChatResponse(
+                    session_id=session_id,
+                    intent=intent.value,
+                    message=brand_list_text,
+                    requirements=requirements,
+                    blocks=[
+                        AgentBlock(
+                            type="product_recommendations",
+                            data={
+                                "products": [c.model_dump() for c in cards],
+                                "total": len(cards),
+                                "exact_match": True,
+                            },
+                        )
+                    ],
+                )
         if intent in (AgentIntent.shopping_agent, AgentIntent.product_finder):
             result = await self.search_products(message, requirements, limit=10)
             if result.products:

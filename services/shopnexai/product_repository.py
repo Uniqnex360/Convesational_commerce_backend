@@ -106,10 +106,10 @@ class ProductRepository:
             }
         ]
 
-        # A generic request such as "show available products"
-        # has no product-specific search terms. In that case,
-        # return all candidates and let RankingEngine apply
-        # budget and availability requirements.
+        
+        
+        
+        
         if not meaningful_tokens:
             return products[:limit]
 
@@ -132,7 +132,7 @@ class ProductRepository:
                 ]
             )
 
-            # Match complete tokens, not substrings.
+            
             searchable_tokens = set(
                 self._tokens(searchable)
             )
@@ -148,8 +148,8 @@ class ProductRepository:
 
             token_score = len(matched_tokens)
 
-            # Give a small bonus when the complete query phrase
-            # occurs in the product text.
+            
+            
             normalized_query = " ".join(
                 meaningful_tokens
             ).lower()
@@ -194,21 +194,35 @@ class ProductRepository:
             if product:
                 products.append(product)
         return products
+    def get_all(self, limit: int = 500) -> List[Dict[str, Any]]:
+        try:
+            documents = list(ShopifyProduct.objects.limit(limit))
+        except Exception:
+            return []
+        return [self.normalize(d) for d in documents]
     def normalize(
         self,
         document: Any,
     ) -> Dict[str, Any]:
         def get_value(
-            name: str,
-            default: Any = None,
-        ) -> Any:
-            if isinstance(document, dict):
-                return document.get(name, default)
-            return getattr(
-                document,
-                name,
-                default,
-            )
+                    name: str,
+                    default: Any = None,
+                ) -> Any:
+                    if isinstance(document, dict):
+                        return document.get(name, default)
+                    return getattr(
+                        document,
+                        name,
+                        default,
+                    )
+        category_ref = get_value("category_id")
+        category_name = None
+        if category_ref is not None:
+            try:
+                category_name = category_ref.name
+            except Exception:
+                category_name = None
+        
         variants = get_value("variants", []) or []
         first_variant = (
             variants[0]
@@ -374,11 +388,12 @@ class ProductRepository:
             "handle": handle,
             "product_url": product_url,
             "category": (
-                get_value("product_type")
-                or get_value("category")
-                or get_value("category_5")
-                or get_value("category_4")
-            ),
+    category_name
+    or get_value("product_type")
+    or get_value("category")
+    or get_value("category_5")
+    or get_value("category_4")
+),
             "available": (
                 get_value("inStock")
                 if get_value("inStock") is not None

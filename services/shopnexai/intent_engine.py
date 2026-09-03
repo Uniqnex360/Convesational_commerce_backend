@@ -105,7 +105,7 @@ class IntentEngine:
                 return intent
 
         if re.search(
-            r"\b(show|find|recommend|need|looking for|search)\b",
+            r"\b(show|find|recommend|need|looking for|search|any other|other options|different)\b",
             text,
         ):
             return AgentIntent.shopping_agent
