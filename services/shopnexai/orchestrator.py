@@ -1,8 +1,6 @@
 import secrets
 from typing import Any, Dict, List, Optional
-
 from fastapi import HTTPException
-
 from models.agent_schemas import (
     AgentBlock,
     AgentChatResponse,
@@ -11,7 +9,6 @@ from models.agent_schemas import (
     ProductSearchResponse,
     RequirementSummary,
 )
-
 from .compatibility_engine import CompatibilityEngine
 from .comparison_engine import ComparisonEngine
 from .explanation_engine import ExplanationEngine
@@ -22,10 +19,7 @@ from .product_search import ProductSearchService
 from .ranking_engine import RankingEngine
 from .requirement_extractor import RequirementExtractor
 from .response_composer import ResponseComposer
-
-
 class ShopNexAIOrchestrator:
-
     def __init__(self) -> None:
         self.intent_engine = IntentEngine()
         self.products = ProductRepository()
@@ -42,7 +36,6 @@ class ShopNexAIOrchestrator:
         self.explanations = ExplanationEngine()
         self.composer = ResponseComposer()
         self._session_requirements: Dict[str, RequirementSummary] = {}
-
     async def process_chat(
         self,
         message: str,
@@ -67,24 +60,20 @@ class ShopNexAIOrchestrator:
             "REMEMBERED PRODUCT IDS:",
             requirements.product_ids,
         )
-
         print(
             "REMEMBERED REQUIREMENTS:",
             requirements.model_dump(),
         )
         if product_ids:
             requirements.product_ids = list(dict.fromkeys(product_ids))
+        has_real_product=(
+            self._has_real_product_context(product_context)
+        )
         shopping_signals = bool(requirements.category) or (
             requirements.budget_max is not None and requirements.budget_max > 0
         )
-
-        # If it looks like a shopping query and user didn't open from a product page,
-        # treat it as a product-finder request.
-        if intent == AgentIntent.product_question and not product_id and not product_context and shopping_signals:
+        if intent == AgentIntent.product_question and not product_id and not has_real_product and shopping_signals:
             intent = AgentIntent.product_finder
-
-        # If caller provided a list of product_ids but no single product_id,
-        # use the first one for product-specific intents.
         if (
             not product_id
             and len(requirements.product_ids) == 1
@@ -105,11 +94,8 @@ class ShopNexAIOrchestrator:
             return self.composer.zero_results(
                 session_id, intent, requirements, query=message
             )
-
         if intent == AgentIntent.find_alternatives:
             current_product = self._get_product(product_id, product_context)
-            # if current_product and not requirements.category:
-            #     requirements.category = current_product.get("category")
             search_text = message
             if current_product:
                 search_text = f"{current_product.get('title', '')} {current_product.get('category', '')} {message}"
@@ -123,7 +109,6 @@ class ShopNexAIOrchestrator:
             return self.composer.recommendations(
                 session_id, intent, requirements, result
             )
-
         if intent == AgentIntent.compare_products:
             ids = product_ids or requirements.product_ids
             if len(ids) < 2:
@@ -138,7 +123,6 @@ class ShopNexAIOrchestrator:
             return self.composer.comparison(
                 session_id, requirements, comparison
             )
-
         if intent == AgentIntent.why_this_product:
             product = self._get_product(product_id, product_context)
             if not product:
@@ -154,7 +138,6 @@ class ShopNexAIOrchestrator:
                 evidence=scored.get("reasons", []),
                 message=explanation,
             )
-
         if intent == AgentIntent.check_fit:
             product = self._get_product(product_id, product_context)
             if not product:
@@ -167,7 +150,6 @@ class ShopNexAIOrchestrator:
                 result=fit_result,
                 message=self._fit_message(fit_result),
             )
-
         if intent == AgentIntent.check_compatibility:
             ids = product_ids or requirements.product_ids
             if len(ids) < 2:
@@ -185,14 +167,11 @@ class ShopNexAIOrchestrator:
                 result=result,
                 message=self._compatibility_message(result),
             )
-
         if intent == AgentIntent.product_question:
-
             if len(requirements.product_ids) >= 2:
                 products = self.products.get_many(
                     requirements.product_ids
                 )
-
                 if len(products) < 2:
                     return AgentChatResponse(
                         session_id=session_id,
@@ -203,33 +182,26 @@ class ShopNexAIOrchestrator:
                         ),
                         requirements=requirements,
                     )
-
                 product_messages = []
                 feature_products = []
-
                 for product in products:
                     product_id_value = str(
                         product.get("id", "")
                     )
-
                     product_title = str(
                         product.get("title")
                         or product.get("name")
                         or product_id_value
                     )
-
                     features: Dict[str, Any] = {}
-
                     for field_name in (
                         "attributes",
                         "specifications",
                         "features",
                     ):
                         field_value = product.get(field_name)
-
                         if isinstance(field_value, dict):
                             features.update(field_value)
-
                     feature_products.append(
                         {
                             "id": product_id_value,
@@ -237,14 +209,12 @@ class ShopNexAIOrchestrator:
                             "features": features,
                         }
                     )
-
                     if features:
                         feature_text = "; ".join(
                             f"{key}: {value}"
                             for key, value in features.items()
                             if value is not None and value != ""
                         )
-
                         product_messages.append(
                             f"{product_title}: {feature_text}"
                         )
@@ -254,7 +224,6 @@ class ShopNexAIOrchestrator:
                             "Feature information is not available "
                             "in the catalog."
                         )
-
                 return AgentChatResponse(
                     session_id=session_id,
                     intent=intent.value,
@@ -273,13 +242,10 @@ class ShopNexAIOrchestrator:
                         )
                     ],
                 )
-
-            # Single-product question logic comes after the two-product logic.
             product = self._get_product(
                 product_id,
                 product_context,
             )
-
             if product:
                 response = (
                     await self.explanations.answer_product_question(
@@ -287,14 +253,12 @@ class ShopNexAIOrchestrator:
                         message,
                     )
                 )
-
                 return self.composer.product_question(
                     session_id=session_id,
                     requirements=requirements,
                     product=self._card(product),
                     message=response,
                 )
-
             return AgentChatResponse(
                 session_id=session_id,
                 intent=intent.value,
@@ -306,7 +270,6 @@ class ShopNexAIOrchestrator:
             )
         try:
             from services.chatbot_service import ChatbotService
-
             legacy_response = await ChatbotService().process_chat_message(
                 message, product_context or {}, session_id, api_key
             )
@@ -323,7 +286,6 @@ class ShopNexAIOrchestrator:
                 message="I can help with that, but the support service is temporarily unavailable.",
                 requirements=requirements,
             )
-
     async def search_products(
         self,
         query: str,
@@ -339,7 +301,6 @@ class ShopNexAIOrchestrator:
             strict=strict,
             exclude_ids=exclude_ids,
         )
-
     async def compare_products(
         self,
         product_ids: List[str],
@@ -353,43 +314,34 @@ class ShopNexAIOrchestrator:
                 if str(product_id).strip()
             )
         )
-
         if len(normalized_ids) < 2:
             raise HTTPException(
                 status_code=400,
                 detail="At least two products are required for comparison",
             )
-
         products = self.products.get_many(normalized_ids)
-
         if len(products) < 2:
             raise HTTPException(
                 status_code=404,
                 detail="At least two products could not be found",
             )
-
         if session_id:
             remembered = (
                 self._session_requirements.get(session_id)
                 or requirements
                 or RequirementSummary()
             )
-
             remembered.product_ids = normalized_ids
-
             self._session_requirements[session_id] = remembered
             print(
                 "COMPARISON MEMORY SAVED:",
                 session_id,
                 normalized_ids,
             )
-
-
         return self.comparison.compare(
             products,
             requirements,
         )
-
     async def explain_product(
         self,
         product_id: str,
@@ -410,13 +362,11 @@ class ShopNexAIOrchestrator:
             requirements=requirements,
             blocks=[AgentBlock(type="why_this_product", data={"product": self._card(scored).model_dump(), "evidence": scored.get("reasons", [])})],
         )
-
     def fit_product(self, product_id: str, requirements: RequirementSummary) -> Dict[str, Any]:
         product = self.products.get(product_id)
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
         return {"product": self._card(product).model_dump(), **self.fit.check(product, requirements)}
-
     def check_compatibility(self, product_a_id: str, product_b_id: str) -> Dict[str, Any]:
         product_a = self.products.get(product_a_id)
         product_b = self.products.get(product_b_id)
@@ -427,7 +377,6 @@ class ShopNexAIOrchestrator:
             "product_b": self._card(product_b).model_dump(),
             **self.compatibility.check(product_a, product_b),
         }
-
     def _remember_requirements(self, session_id: str, current: RequirementSummary) -> RequirementSummary:
         previous = self._session_requirements.get(session_id)
         if not previous:
@@ -436,7 +385,6 @@ class ShopNexAIOrchestrator:
         data = previous.model_dump()
         current_data = current.model_dump()
         data["category"] = current_data.get("category")
-
         for key in ( "quantity", "budget_min", "budget_max", "currency", "use_case"):
             if current_data.get(key) is not None:
                 data[key] = current_data[key]
@@ -446,16 +394,36 @@ class ShopNexAIOrchestrator:
         merged = RequirementSummary.model_validate(data)
         self._session_requirements[session_id] = merged
         return merged
-
+    @staticmethod
+    def _has_real_product_context(product_context:Optional[Dict[str,Any]],)->bool:
+        if not product_context:
+            return False
+        product_id=(product_context.get('productId') or product_context.get('product_id')or product_context.get('id'))
+        if product_id and str(product_id).strip():
+            return True
+        product_name=str(product_context.get('name') or product_context.get('title') or "").strip().casefold()
+        placeholder_names={
+              "",
+            "product",
+            "loading...",
+            "unknown product",
+            "e-commerce store",
+            "ecommerce store",
+            "shopify",
+        }
+        return product_name not in placeholder_names
     def _get_product(self, product_id: Optional[str], product_context: Optional[Dict[str, Any]]):
         if product_id:
             product = self.products.get(product_id)
             if product:
                 return product
-        if product_context:
-            return self.products.normalize(product_context)
+        if self._has_real_product_context(
+            product_context
+        ):
+            return self.products.normalize(
+                product_context
+            )
         return None
-
     @staticmethod
     def _card(product: Dict[str, Any]) -> ProductCard:
         return ProductCard(
@@ -474,7 +442,6 @@ class ShopNexAIOrchestrator:
             compromises=product.get("compromises", []),
             attributes=product.get("attributes", {}),
         )
-
     @staticmethod
     def _missing_product_response(session_id: str, intent: AgentIntent, requirements: RequirementSummary):
         return AgentChatResponse(
@@ -483,7 +450,6 @@ class ShopNexAIOrchestrator:
             message="Please provide a product ID or open this assistant from a product page.",
             requirements=requirements,
         )
-
     @staticmethod
     def _fit_message(result: Dict[str, Any]) -> str:
         messages = {
@@ -493,7 +459,6 @@ class ShopNexAIOrchestrator:
             "unknown": "I don't have enough product information to confirm the fit.",
         }
         return messages[result.get("status", "unknown")]
-
     @staticmethod
     def _compatibility_message(result: Dict[str, Any]) -> str:
         return {
