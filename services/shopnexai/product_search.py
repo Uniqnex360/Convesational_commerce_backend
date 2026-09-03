@@ -6,6 +6,7 @@ from models.agent_schemas import ProductCard, ProductSearchResponse, Requirement
 from .product_repository import ProductRepository
 from .ranking_engine import RankingEngine
 from .requirement_extractor import RequirementExtractor
+from backend.models.agent_schemas import ProductSearchResponse
 
 
 class ProductSearchService:
@@ -41,6 +42,16 @@ class ProductSearchService:
 
         exact_match = True
         if not ranked and strict:
+            availability_required=(
+                requirements.hard_constraints.get('availability')is True
+                
+            )
+            if availability_required:
+                return ProductSearchResponse(
+                    products=[],
+                    total=0,
+                    exact_match=False
+                )
             ranked = self.ranking.rank(
                 candidates,
                 requirements,
