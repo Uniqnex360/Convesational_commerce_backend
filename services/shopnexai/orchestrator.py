@@ -66,11 +66,20 @@ class ShopNexAIOrchestrator:
         )
         if product_ids:
             requirements.product_ids = list(dict.fromkeys(product_ids))
-        has_real_product=(
+        has_real_product = (
             self._has_real_product_context(product_context)
         )
-        shopping_signals = bool(requirements.category) or (
-            requirements.budget_max is not None and requirements.budget_max > 0
+
+        shopping_signals = (
+            bool(requirements.category)
+            or (
+                requirements.budget_max is not None
+                and requirements.budget_max > 0
+            )
+            or requirements.hard_constraints.get(
+                "availability"
+            ) is True
+            or bool(requirements.preferences)
         )
         if intent == AgentIntent.product_question and not product_id and not has_real_product and shopping_signals:
             intent = AgentIntent.product_finder
