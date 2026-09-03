@@ -52,6 +52,7 @@ class ResponseComposer:
         return self._response(
             session_id=session_id,
             intent=self._intent_value(intent),
+            
             message="I couldn't find an exact match. You can try a different category, budget, or preference.",
             requirements=requirements,
             blocks=[
