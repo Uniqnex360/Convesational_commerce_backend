@@ -50,7 +50,7 @@ class ResponseComposer:
         query: Optional[str] = None,
     ) -> AgentChatResponse:
         availability_requested = (
-            requirements.get("hard_constraints", {}).get("availability") is True
+            requirements.hard_constraints.get("availability") is True
         )
 
         if availability_requested:
