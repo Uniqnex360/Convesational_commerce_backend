@@ -92,6 +92,10 @@ class ShopNexAIOrchestrator:
         # if intent == AgentIntent.product_question and not product_id and not has_real_product and shopping_signals:
         if intent == AgentIntent.product_question and shopping_signals and requirements.scope == "catalog":
             intent = AgentIntent.product_finder
+            if not requirements.category:
+                current_product = self._get_product(product_id, product_context)
+                if current_product and current_product.get("category"):
+                    requirements.category = current_product.get("category")
         if (
             not product_id
             and len(requirements.product_ids) == 1
