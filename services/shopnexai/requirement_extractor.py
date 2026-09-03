@@ -119,6 +119,35 @@ class RequirementExtractor:
             hard_constraints["budget_min"] = budget_min
         if "in stock" in text or "available" in text:
             hard_constraints["availability"] = True
+
+        range_pattern = re.compile(
+            r"(under|below|less than|up to|max(?:imum)?|"
+            r"over|above|more than|min(?:imum)?)\s+"
+            r"(?:([a-z]+)\s+)?(\d[\d,]*(?:\.\d+)?)\s*([a-z]+)?",
+            re.IGNORECASE,
+        )
+        for m in range_pattern.finditer(text):
+            direction = m.group(1).lower()
+            unit = (m.group(2) or m.group(4) or "").strip().lower()
+            number = self._parse_number(m.group(3), None)
+            if number is None or not unit:
+                continue
+            field_match = None
+            for field in attribute_vocabulary.keys():
+                if unit in re.sub(r"[_-]+", " ", field.lower()):
+                    field_match = self._field_name(field)
+                    break
+            if not field_match:
+                continue
+            bound = "max" if direction in (
+                "under", "below", "less than", "up to", "max", "maximum"
+            ) else "min"
+            existing = hard_constraints.get(field_match, {})
+            if not isinstance(existing, dict):
+                existing = {}
+            existing[bound] = number
+            hard_constraints[field_match] = existing
+
         for field, values in attribute_vocabulary.items():
             field_label = re.sub(
                 r"[_-]+",

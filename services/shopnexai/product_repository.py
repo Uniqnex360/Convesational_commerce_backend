@@ -259,6 +259,9 @@ class ProductRepository:
         )
         if isinstance(specifications, dict):
             attributes.update(specifications)
+            html_specs = self._parse_html_specs(get_value("body_html"))
+            for key, value in html_specs.items():
+                attributes.setdefault(key, value)
         raw_document = (
             document
             if isinstance(document, dict)
@@ -419,6 +422,15 @@ class ProductRepository:
             "attributes": attributes,
             "variants": variants,
         }
+    @staticmethod
+    def _parse_html_specs(html: str) -> Dict[str, str]:
+        specs = {}
+        for m in re.finditer(r"<li>\s*(?:<strong>)?\s*([^:<]+?)\s*(?:</strong>)?\s*:\s*([^<]+)</li>", html or ""):
+            key = m.group(1).strip()
+            value = m.group(2).strip()
+            if key and value:
+                specs[key] = value
+        return specs
     @staticmethod
     def _tokens(value: str) -> List[str]:
         return [

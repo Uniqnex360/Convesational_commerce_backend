@@ -126,18 +126,23 @@ class RankingEngine:
                 continue
 
             if isinstance(expected, dict):
-                # Structured constraints are evaluated
-                # by the configured fit-rule engine.
+                actual_num = self._number(self._attribute(product, key))
+                if actual_num is not None:
+                    if "max" in expected and actual_num > expected["max"]:
+                        failures.append(f"{key} is above {expected['max']:g}")
+                    if "min" in expected and actual_num < expected["min"]:
+                        failures.append(f"{key} is below {expected['min']:g}")
                 continue
 
             actual = self._attribute(product, key)
+
 
             if (
                 actual is not None
                 and not self._matches(actual, expected)
             ):
                 failures.append(
-                    f"{key} does not match"
+                    f"{key} does not match"`
                 )
 
         return failures
