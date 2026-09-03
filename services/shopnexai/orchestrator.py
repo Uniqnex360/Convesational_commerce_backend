@@ -128,7 +128,7 @@ class ShopNexAIOrchestrator:
                     requirements=requirements,
                     blocks=[AgentBlock(type="comparison_request", data={})],
                 )
-            comparison = await self.compare_products(ids, requirements)
+            comparison = await self.compare_products(ids, requirements,session_id=session_id)
             return self.composer.comparison(
                 session_id, requirements, comparison
             )
