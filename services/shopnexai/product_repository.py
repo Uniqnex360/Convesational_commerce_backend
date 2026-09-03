@@ -1,12 +1,8 @@
 import re
 from typing import Any, Dict, Iterable, List, Optional
-
 from models.schemas import ShopifyProduct
-
 import os
 class ProductRepository:
-  
-
     def categories(self, limit: int = 500) -> List[str]:
         try:
             documents = list(
@@ -14,17 +10,41 @@ class ProductRepository:
             )
         except Exception:
             return []
-
         values = set()
-
         for document in documents:
             product = self.normalize(document)
-
             if product.get("category"):
                 values.add(str(product["category"]))
-
         return sorted(values)
-
+    _SEARCH_STOPWORDS = {
+        "a",
+        "an",
+        "and",
+        "are",
+        "available",
+        "availability",
+        "below",
+        "find",
+        "for",
+        "in",
+        "is",
+        "item",
+        "items",
+        "less",
+        "me",
+        "my",
+        "of",
+        "please",
+        "product",
+        "products",
+        "show",
+        "than",
+        "the",
+        "to",
+        "under",
+        "up",
+        "with",
+    }
     def attribute_vocabulary(
         self,
         limit: int = 500,
@@ -35,30 +55,24 @@ class ProductRepository:
             )
         except Exception:
             return {}
-
         vocabulary: Dict[str, set[str]] = {}
-
         for document in documents:
             product = self.normalize(document)
-
             for name, value in product.get(
                 "attributes",
                 {},
             ).items():
                 values = value if isinstance(value, list) else [value]
-
                 for item in values:
                     if item not in (None, "", [], {}):
                         vocabulary.setdefault(
                             str(name),
                             set(),
                         ).add(str(item))
-
         return {
             name: sorted(values)
             for name, values in vocabulary.items()
         }
-
     def search(
         self,
         query: str = "",
@@ -80,7 +94,23 @@ class ProductRepository:
 
         query_tokens = self._tokens(query)
 
-        if not query_tokens:
+        meaningful_tokens = [
+            token
+            for token in query_tokens
+            if token not in self._SEARCH_STOPWORDS
+            and not token.isdigit()
+            and token not in {
+                "usd",
+                "inr",
+                "rs",
+            }
+        ]
+
+        # A generic request such as "show available products"
+        # has no product-specific search terms. In that case,
+        # return all candidates and let RankingEngine apply
+        # budget and availability requirements.
+        if not meaningful_tokens:
             return products[:limit]
 
         scored = []
@@ -100,16 +130,36 @@ class ProductRepository:
                         ).values()
                     ),
                 ]
-            ).lower()
-
-            token_score = sum(
-                1
-                for token in query_tokens
-                if token in searchable
             )
 
-            if token_score:
-                scored.append((token_score, product))
+            # Match complete tokens, not substrings.
+            searchable_tokens = set(
+                self._tokens(searchable)
+            )
+
+            matched_tokens = [
+                token
+                for token in meaningful_tokens
+                if token in searchable_tokens
+            ]
+
+            if not matched_tokens:
+                continue
+
+            token_score = len(matched_tokens)
+
+            # Give a small bonus when the complete query phrase
+            # occurs in the product text.
+            normalized_query = " ".join(
+                meaningful_tokens
+            ).lower()
+
+            normalized_searchable = searchable.lower()
+
+            if normalized_query in normalized_searchable:
+                token_score += 2
+
+            scored.append((token_score, product))
 
         scored.sort(
             key=lambda item: item[0],
@@ -120,7 +170,6 @@ class ProductRepository:
             product
             for _, product in scored[:limit]
         ]
-
     def get(
         self,
         product_id: str,
@@ -129,30 +178,22 @@ class ProductRepository:
             numeric_id = int(
                 str(product_id).split("/")[-1]
             )
-
             document = ShopifyProduct.objects.get(
                 _id=numeric_id
             )
-
             return self.normalize(document)
-
         except Exception:
             return None
-
     def get_many(
         self,
         product_ids: Iterable[str],
     ) -> List[Dict[str, Any]]:
         products = []
-
         for product_id in product_ids:
             product = self.get(str(product_id))
-
             if product:
                 products.append(product)
-
         return products
-
     def normalize(
         self,
         document: Any,
@@ -163,57 +204,44 @@ class ProductRepository:
         ) -> Any:
             if isinstance(document, dict):
                 return document.get(name, default)
-
             return getattr(
                 document,
                 name,
                 default,
             )
-
         variants = get_value("variants", []) or []
-
         first_variant = (
             variants[0]
             if variants
             else {}
         )
-
         if not isinstance(first_variant, dict):
             first_variant = {}
-
         price = self._number(
             first_variant.get("price")
         )
-
         if price is None:
             price = self._number(
                 get_value("price")
             )
-
         attributes: Dict[str, Any] = {}
-
         raw_attributes = (
             get_value("attributes", {})
             or {}
         )
-
         if isinstance(raw_attributes, dict):
             attributes.update(raw_attributes)
-
         specifications = (
             get_value("specifications", {})
             or {}
         )
-
         if isinstance(specifications, dict):
             attributes.update(specifications)
-
         raw_document = (
             document
             if isinstance(document, dict)
             else getattr(document, "_data", {})
         )
-
         ignored_fields = {
             "_id",
             "id",
@@ -253,7 +281,6 @@ class ProductRepository:
             "last_synced",
             "shopify_updated_at",
         }
-
         if isinstance(raw_document, dict):
             for field, value in raw_document.items():
                 if (
@@ -261,7 +288,6 @@ class ProductRepository:
                     and value not in (None, "", [], {})
                 ):
                     attributes[field] = value
-
         inventory_values = [
             variant.get("inventory_quantity")
             for variant in variants
@@ -270,7 +296,6 @@ class ProductRepository:
                 and "inventory_quantity" in variant
             )
         ]
-
         if inventory_values:
             available = any(
                 (self._number(value) or 0) > 0
@@ -285,12 +310,10 @@ class ProductRepository:
                 "archived",
                 "inactive",
             )
-
         if get_value("available") is not None:
             available = bool(
                 get_value("available")
             )
-
         product_id = get_value(
             "_id",
             get_value(
@@ -307,14 +330,11 @@ class ProductRepository:
         storefront_url = (
             os.getenv("SHOPNEXAI_STOREFRONT_URL") or ""
         ).rstrip("/")
-
         handle = get_value("handle")
-
         product_url = (
             get_value("product_url")
             or get_value("url")
         )
-
         if (
             not product_url
             and storefront_url
@@ -376,7 +396,6 @@ class ProductRepository:
             "attributes": attributes,
             "variants": variants,
         }
-
     @staticmethod
     def _tokens(value: str) -> List[str]:
         return [
@@ -387,23 +406,18 @@ class ProductRepository:
             )
             if len(token) > 1
         ]
-
     @staticmethod
     def _number(value: Any) -> Optional[float]:
         if value is None:
             return None
-
         if isinstance(value, (int, float)):
             return float(value)
-
         match = re.search(
             r"-?\d[\d,]*(?:\.\d+)?",
             str(value),
         )
-
         if not match:
             return None
-
         return float(
             match.group(0).replace(",", "")
         )
