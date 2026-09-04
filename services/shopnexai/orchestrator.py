@@ -166,7 +166,8 @@ class ShopNexAIOrchestrator:
                     ],
                 )
         if intent in (AgentIntent.shopping_agent, AgentIntent.product_finder):
-            result = await self.search_products(message, requirements, limit=10)
+            search_limit = requirements.quantity if requirements.quantity else 10
+            result = await self.search_products(message, requirements, limit=search_limit)
             if result.products:
                 return self.composer.recommendations(
                     session_id, intent, requirements, result

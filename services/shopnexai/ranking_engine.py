@@ -43,8 +43,10 @@ class RankingEngine:
             )
 
         ranked.sort(
-            key=lambda item: item.get("score", 0),
-            reverse=True,
+            key=lambda item: (
+                -item.get("score", 0),
+                item.get("price") if item.get("price") is not None else float("inf"),
+            )
         )
 
         return ranked
