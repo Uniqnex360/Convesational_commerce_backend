@@ -83,6 +83,7 @@ class RequirementExtractor:
                 context_line +
                 ". Message: " + message
             ),
+        )
         if data:
             try:
                 parsed = RequirementSummary.model_validate(data)
