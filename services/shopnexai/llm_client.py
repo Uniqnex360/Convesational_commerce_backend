@@ -2,20 +2,14 @@ import json
 import logging
 import os
 from typing import Any, Dict, Optional
-
 try:
     from dotenv import load_dotenv
-except ImportError:  # allows deterministic unit tests without optional env tooling
+except ImportError:  
     def load_dotenv() -> bool:
         return False
-
 load_dotenv()
 logger = logging.getLogger(__name__)
-
-
 class LLMClient:
-   
-
     def __init__(self) -> None:
         self.model = os.getenv("SHOPNEXAI_LLM_MODEL", "gpt-4o-mini")
         self._client = None
@@ -23,15 +17,12 @@ class LLMClient:
         if api_key:
             try:
                 from openai import AsyncOpenAI
-
                 self._client = AsyncOpenAI(api_key=api_key)
-            except Exception as exc:  # pragma: no cover - environment dependent
+            except Exception as exc:  
                 logger.warning("OpenAI client unavailable: %s", exc)
-
     @property
     def available(self) -> bool:
         return self._client is not None
-
     async def json_completion(
         self,
         system_prompt: str,
@@ -52,10 +43,9 @@ class LLMClient:
             content = response.choices[0].message.content or "{}"
             value = json.loads(content)
             return value if isinstance(value, dict) else None
-        except Exception as exc:  # LLM failure should not break commerce APIs
+        except Exception as exc:  
             logger.warning("ShopNexAI JSON LLM call failed: %s", exc)
             return None
-
     async def text_completion(
         self,
         system_prompt: str,
@@ -74,6 +64,6 @@ class LLMClient:
                 max_tokens=400,
             )
             return (response.choices[0].message.content or "").strip() or None
-        except Exception as exc:  # LLM failure should not break commerce APIs
+        except Exception as exc:  
             logger.warning("ShopNexAI text LLM call failed: %s", exc)
             return None

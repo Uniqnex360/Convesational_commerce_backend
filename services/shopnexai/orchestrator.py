@@ -9,6 +9,8 @@ from models.agent_schemas import (
     ProductSearchResponse,
     RequirementSummary,
 )
+import time
+
 from .category_resolver import PureDynamicCategoryResolver, is_brand_request
 
 from .compatibility_engine import CompatibilityEngine
@@ -50,15 +52,21 @@ class ShopNexAIOrchestrator:
         api_key: Optional[str] = None,
     ) -> AgentChatResponse:
         session_id = session_id or f"snx_{secrets.token_urlsafe(12)}"
+        t0 = time.monotonic()
         self.category_resolver.sync_catalog_categories(self.products.categories())
+        print(f"[TIMING] sync_categories: {time.monotonic()-t0:.2f}s")
+        t1 = time.monotonic()
         intent = self.intent_engine.detect(message, forced_intent)
         current_product_ctx = self._get_product(product_id, product_context)
+        print(f"[TIMING] intent+get_product: {time.monotonic()-t1:.2f}s")
+        t2 = time.monotonic()
         extracted = await self.requirement_extractor.extract(
             message,
             known_categories=self.products.categories(),
             attribute_vocabulary=self.products.attribute_vocabulary(),
             current_product=current_product_ctx,
         )
+        print(f"[TIMING] extract_requirements: {time.monotonic()-t2:.2f}s")
         requirements = self._remember_requirements(session_id, extracted)
         if not requirements.category:
             resolved_cat = self.category_resolver.resolve(message)
