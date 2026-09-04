@@ -58,15 +58,39 @@ class FitEngine:
             elif result is False and rule.get("required", True):
                 failures.append(f"Product does not satisfy {req_key}")
 
-        # Generic attribute checks work for any merchant-defined key. No
-        # product category or attribute name is hardcoded here.
+        # for key, expected in {**requirements.hard_constraints, **requirements.preferences}.items():
+        #     if key in {"budget_max", "budget_min", "availability"} or key in evaluated:
+        #         continue
+        #     actual = self._attribute(product, key)
+        #     if actual is None:
+        #         unknowns.append(f"{key} is not specified")
+        #     elif self._matches(actual, expected):
+        #         evidence.append(self._evidence(f"Matches {key}: {expected}", key, 0.85))
+        #     elif key in requirements.hard_constraints:
+        #         failures.append(f"Does not match required {key}")
         for key, expected in {**requirements.hard_constraints, **requirements.preferences}.items():
             if key in {"budget_max", "budget_min", "availability"} or key in evaluated:
                 continue
             actual = self._attribute(product, key)
             if actual is None:
                 unknowns.append(f"{key} is not specified")
-            elif self._matches(actual, expected):
+                continue
+            if isinstance(expected, dict):
+                actual_num = self._number(actual)
+                if actual_num is None:
+                    unknowns.append(f"{key} is not specified")
+                    continue
+                ok = True
+                if "max" in expected and actual_num > expected["max"]:
+                    ok = False
+                if "min" in expected and actual_num < expected["min"]:
+                    ok = False
+                if ok:
+                    evidence.append(self._evidence(f"{key} is within range: {actual_num:g}", key, 0.9))
+                elif key in requirements.hard_constraints:
+                    failures.append(f"Does not match required {key}")
+                continue
+            if self._matches(actual, expected):
                 evidence.append(self._evidence(f"Matches {key}: {expected}", key, 0.85))
             elif key in requirements.hard_constraints:
                 failures.append(f"Does not match required {key}")
