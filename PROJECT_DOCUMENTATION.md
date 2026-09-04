@@ -255,3 +255,4 @@ A backend API for an AI-powered product chatbot, designed for e-commerce platfor
 
 ---
 
+python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
