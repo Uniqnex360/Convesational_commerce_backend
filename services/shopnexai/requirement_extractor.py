@@ -85,6 +85,12 @@ class RequirementExtractor:
             ),
         )
         if data:
+            if data.get("product_ids") is None:
+                data["product_ids"] = []
+            if data.get("hard_constraints") is None:
+                data["hard_constraints"] = {}
+            if data.get("preferences") is None:
+                data["preferences"] = {}
             try:
                 parsed = RequirementSummary.model_validate(data)
                 deterministic = self._heuristic_extract(
