@@ -2,8 +2,20 @@ import re
 from typing import Any, Dict, Iterable, List, Optional
 from models.schemas import ShopifyProduct
 import os
+import time
 class ProductRepository:
+    _categories_cache = None
+    _categories_cache_time = 0.0
+    _attr_vocab_cache = None
+    _attr_vocab_cache_time = 0.0
+    _CACHE_TTL = 300 
     def categories(self, limit: int = 500) -> List[str]:
+        now = time.time()
+        if (
+            self._categories_cache is not None
+            and now - self._categories_cache_time < self._CACHE_TTL
+        ):
+            return self._categories_cache
         try:
             documents = list(
                 ShopifyProduct.objects.limit(limit)
@@ -15,7 +27,10 @@ class ProductRepository:
             product = self.normalize(document)
             if product.get("category"):
                 values.add(str(product["category"]))
-        return sorted(values)
+        result=sorted(values)
+        ProductRepository._categories_cache = result
+        ProductRepository._categories_cache_time = now
+        return result
     _SEARCH_STOPWORDS = {
         "a",
         "an",
@@ -45,34 +60,29 @@ class ProductRepository:
         "up",
         "with",
     }
-    def attribute_vocabulary(
-        self,
-        limit: int = 500,
-    ) -> Dict[str, List[str]]:
+    def attribute_vocabulary(self, limit: int = 500) -> Dict[str, List[str]]:
+        now = time.time()
+        if (
+            self._attr_vocab_cache is not None
+            and now - self._attr_vocab_cache_time < self._CACHE_TTL
+        ):
+            return self._attr_vocab_cache
         try:
-            documents = list(
-                ShopifyProduct.objects.limit(limit)
-            )
+            documents = list(ShopifyProduct.objects.limit(limit))
         except Exception:
             return {}
         vocabulary: Dict[str, set[str]] = {}
         for document in documents:
             product = self.normalize(document)
-            for name, value in product.get(
-                "attributes",
-                {},
-            ).items():
+            for name, value in product.get("attributes", {}).items():
                 values = value if isinstance(value, list) else [value]
                 for item in values:
                     if item not in (None, "", [], {}):
-                        vocabulary.setdefault(
-                            str(name),
-                            set(),
-                        ).add(str(item))
-        return {
-            name: sorted(values)
-            for name, values in vocabulary.items()
-        }
+                        vocabulary.setdefault(str(name), set()).add(str(item))
+        result = {name: sorted(values) for name, values in vocabulary.items()}
+        ProductRepository._attr_vocab_cache = result
+        ProductRepository._attr_vocab_cache_time = now
+        return result
     def search(
         self,
         query: str = "",
