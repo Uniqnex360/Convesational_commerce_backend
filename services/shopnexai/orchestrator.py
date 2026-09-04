@@ -52,10 +52,12 @@ class ShopNexAIOrchestrator:
         session_id = session_id or f"snx_{secrets.token_urlsafe(12)}"
         self.category_resolver.sync_catalog_categories(self.products.categories())
         intent = self.intent_engine.detect(message, forced_intent)
+        current_product_ctx = self._get_product(product_id, product_context)
         extracted = await self.requirement_extractor.extract(
             message,
             known_categories=self.products.categories(),
             attribute_vocabulary=self.products.attribute_vocabulary(),
+            current_product=current_product_ctx,
         )
         requirements = self._remember_requirements(session_id, extracted)
         if not requirements.category:

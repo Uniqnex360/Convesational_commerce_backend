@@ -10,9 +10,22 @@ class RequirementExtractor:
         message: str,
         known_categories: Optional[List[str]] = None,
         attribute_vocabulary: Optional[Dict[str, List[str]]] = None,
+        current_product: Optional[Dict[str, Any]] = None,
     ) -> RequirementSummary:
        
         known_categories = known_categories or []
+        context_line = ""
+        if current_product:
+            context_line = (
+                " The user may be viewing this product right now — resolve "
+                "references like 'this', 'it', 'same', 'cheaper than this' "
+                "using its data: " + str({
+                    "title": current_product.get("title"),
+                    "category": current_product.get("category"),
+                    "price": current_product.get("price"),
+                    "attributes": current_product.get("attributes"),
+                })
+            )
         attribute_vocabulary = attribute_vocabulary or {}
         data = await self.llm.json_completion(
             system_prompt=(
@@ -21,6 +34,7 @@ class RequirementExtractor:
                 "Use numeric budgets and dimensions when present. Preserve "
                 "merchant attribute names in hard_constraints or preferences."
             ),
+            
             user_prompt=(
                 "Extract this message into keys category, quantity, budget_min, "
                 "budget_max, currency, use_case, hard_constraints, preferences, "
@@ -30,7 +44,7 @@ class RequirementExtractor:
                 "or \"catalog\" if it asks whether other/different/cheaper/alternative "
                 "products exist, or browses the wider catalog. Prefer one of these "
                 "catalog categories when appropriate: " + ", ".join(known_categories[:100]) +
-                ". Known catalog attributes and values: " +
+                ". Known catalog attributes and values: " +  context_line+
                 str({key: values[:30] for key, values in attribute_vocabulary.items()}) +
                 ". Message: " + message
             ),
@@ -43,19 +57,26 @@ class RequirementExtractor:
                     known_categories,
                     attribute_vocabulary,
                 )
-                parsed.category = deterministic.category
-                parsed.quantity = deterministic.quantity
-                parsed.budget_min = deterministic.budget_min
-                parsed.budget_max = deterministic.budget_max
-                parsed.currency = deterministic.currency
-                parsed.use_case = deterministic.use_case
-                parsed.hard_constraints = dict(
-                    deterministic.hard_constraints
-                )
+                if not parsed.category:
+                    parsed.category = deterministic.category
+                if parsed.quantity is None:
+                    parsed.quantity = deterministic.quantity
+                if parsed.budget_min is None:
+                    parsed.budget_min = deterministic.budget_min
+                if parsed.budget_max is None:
+                    parsed.budget_max = deterministic.budget_max
+                if not parsed.currency:
+                    parsed.currency = deterministic.currency
+                if not parsed.use_case:
+                    parsed.use_case = deterministic.use_case
 
-                parsed.preferences = dict(
-                    deterministic.preferences
-                )
+                merged_constraints = dict(parsed.hard_constraints or {})
+                merged_constraints.update(deterministic.hard_constraints)
+                parsed.hard_constraints = merged_constraints
+
+                merged_preferences = dict(parsed.preferences or {})
+                merged_preferences.update(deterministic.preferences)
+                parsed.preferences = merged_preferences
                 return parsed
             except Exception:
                 pass
