@@ -35,17 +35,49 @@ class RequirementExtractor:
                 "merchant attribute names in hard_constraints or preferences."
             ),
             
+            # user_prompt=(
+            #     "Extract this message into keys category, quantity, budget_min, "
+            #     "budget_max, currency, use_case, hard_constraints, preferences, "
+            #     "product_ids, and scope. scope must be \"current_product\" if the "
+            #     "message is about the single product currently being viewed "
+            #     "(uses words like this/it/that, or asks about its specs/price/fit), "
+            #     "or \"catalog\" if it asks whether other/different/cheaper/alternative "
+            #     "products exist, or browses the wider catalog. Prefer one of these "
+            #     "catalog categories when appropriate: " + ", ".join(known_categories[:100]) +
+            #     ". Known catalog attributes and values: " +  context_line+
+            #     str({key: values[:30] for key, values in attribute_vocabulary.items()}) +
+            #     ". Message: " + message
+            # ),
             user_prompt=(
-                "Extract this message into keys category, quantity, budget_min, "
-                "budget_max, currency, use_case, hard_constraints, preferences, "
-                "product_ids, and scope. scope must be \"current_product\" if the "
-                "message is about the single product currently being viewed "
-                "(uses words like this/it/that, or asks about its specs/price/fit), "
-                "or \"catalog\" if it asks whether other/different/cheaper/alternative "
-                "products exist, or browses the wider catalog. Prefer one of these "
-                "catalog categories when appropriate: " + ", ".join(known_categories[:100]) +
-                ". Known catalog attributes and values: " +  context_line+
+                "Extract this message into JSON with keys: category, quantity, "
+                "budget_min, budget_max, currency, use_case, hard_constraints, "
+                "preferences, product_ids, scope.\n"
+                "Rules:\n"
+                "- scope: \"current_product\" if the message is about the specific "
+                "product currently viewed (uses this/it/that, or asks about its own "
+                "specs/price/fit); \"catalog\" if it asks about other/different/"
+                "cheaper/alternative products or browses the wider catalog.\n"
+                "- category: set this if the user is asking about products in the "
+                "same category as the current product, or names a category.\n"
+                "- For any numeric attribute constraint (e.g. BTU, capacity, size, "
+                "weight) resolved via under/below/less than/max, output "
+                "hard_constraints as {\"<attribute_key>\": {\"max\": <number>}}. "
+                "For over/above/more than/min, use {\"min\": <number>}. Never output "
+                "a plain string value for a numeric constraint.\n"
+                "- If the message references 'this'/'it' and a numeric attribute "
+                "(e.g. 'below this BTU'), resolve the number from the current "
+                "product's attributes given below, using the SAME attribute key "
+                "name as it appears there.\n"
+                "Example: message 'any products below this BTU' with current "
+                "product attribute \"Cooling Capacity (BTU)\": \"24,000\" and "
+                "category \"Air Conditioner\" should produce: "
+                "{\"category\": \"Air Conditioner\", \"hard_constraints\": "
+                "{\"Cooling Capacity (BTU)\": {\"max\": 24000}}, \"scope\": \"catalog\"}\n"
+                "Prefer one of these catalog categories when appropriate: " +
+                ", ".join(known_categories[:100]) +
+                ". Known catalog attributes and values: " +
                 str({key: values[:30] for key, values in attribute_vocabulary.items()}) +
+                context_line +
                 ". Message: " + message
             ),
         )
