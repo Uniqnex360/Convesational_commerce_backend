@@ -43,7 +43,7 @@ class PureDynamicCategoryResolver:
 
         query_words = {
         w for w in re.findall(r'\w+', text.lower())
-        if w not in self._STOPWORDS and len(w) > 2
+        if w not in self._STOPWORDS and len(w) >= 2
     }
         
         
