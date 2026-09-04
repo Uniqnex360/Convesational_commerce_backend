@@ -59,23 +59,23 @@ class RequirementExtractor:
                 "cheaper/alternative products or browses the wider catalog.\n"
                 "- category: set this if the user is asking about products in the "
                 "same category as the current product, or names a category.\n"
-                "- For any numeric attribute constraint (e.g. BTU, capacity, size, "
-                "weight) resolved via under/below/less than/max, output "
-                "hard_constraints as {\"<attribute_key>\": {\"max\": <number>}}. "
-                "For over/above/more than/min, use {\"min\": <number>}. Never output "
-                "a plain string value for a numeric constraint.\n"
-                "- If the message references 'this'/'it' and a numeric attribute "
-                "(e.g. 'below this BTU'), resolve the number from the current "
-                "product's attributes given below, using the SAME attribute key "
-                "name as it appears there.\n"
-                "- If the message asks for an EXACT value (e.g. 'with 10,000 BTU', 'the 500W model'), "
-                "output {\"<attribute_key>\": {\"min\": <number>, \"max\": <number>}} using the same "
-                "number for both, not just min.\n"
-                "Example: message 'any products below this BTU' with current "
-                "product attribute \"Cooling Capacity (BTU)\": \"24,000\" and "
-                "category \"Air Conditioner\" should produce: "
-                "{\"category\": \"Air Conditioner\", \"hard_constraints\": "
-                "{\"Cooling Capacity (BTU)\": {\"max\": 24000}}, \"scope\": \"catalog\"}\n"
+                "- If the message references 'this'/'it' and a numeric attribute, "
+                "resolve the number from the current product's attributes given "
+                "below, using the SAME attribute key name as it appears there.\n"
+                "- If the message asks for an EXACT value (e.g. 'with 10,000 BTU', "
+                "'the 500W model'), output {\"<attribute_key>\": {\"min\": <number>, "
+                "\"max\": <number>}} using the same number for both.\n"
+                "- For any other numeric attribute constraint, reason about "
+                "direction: is the number describing the USER's own situation or "
+                "need (their room size, their space, their requirement) that the "
+                "product's matching attribute must be capable of meeting or "
+                "exceeding? Use {\"min\": <number>}. Or is the number a cap the "
+                "user wants on the PRODUCT's own spec, so the product should stay "
+                "at or under that value? Use {\"max\": <number>}. Decide this per "
+                "message and per attribute — never assume a fixed direction for "
+                "any particular attribute name. Never output a plain string or "
+                "number for a numeric constraint; always use the {\"min\"/\"max\"} "
+                "object form.\n"
                 "Prefer one of these catalog categories when appropriate: " +
                 ", ".join(known_categories[:100]) +
                 ". Known catalog attributes and values: " +
@@ -83,7 +83,6 @@ class RequirementExtractor:
                 context_line +
                 ". Message: " + message
             ),
-        )
         if data:
             try:
                 parsed = RequirementSummary.model_validate(data)
