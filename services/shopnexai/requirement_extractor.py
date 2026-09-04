@@ -113,8 +113,10 @@ class RequirementExtractor:
                 merged_preferences.update(deterministic.preferences)
                 parsed.preferences = merged_preferences
                 return parsed
-            except Exception:
-                pass
+            except Exception as e:
+                print("EXTRACT PARSE FAILED:", e, "RAW DATA:", data)
+        else:
+            print("LLM RETURNED NO DATA for message:", message)
         return self._heuristic_extract(message, known_categories, attribute_vocabulary)
     def _heuristic_extract(
         self,
