@@ -117,8 +117,7 @@ class ShopNexAIOrchestrator:
             
             matching_products = [
                 p for p in all_products
-                if p.get("available") is not False
-                and (
+                if (
                     not target_cat
                     or str(p.get("category", "")).lower() == target_cat.lower()
                     or target_cat.lower() in str(p.get("title", "")).lower()
